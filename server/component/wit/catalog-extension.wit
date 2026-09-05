@@ -1,0 +1,72 @@
+// Next-generation, capability-mediated extension ABI. The checked-in
+// catalog-extension.wit remains catalog:host@1.0.0 and is never changed.
+package catalog:host@1.1.0;
+
+interface api {
+  record event {
+    id: string,
+    event-type: string,
+    aggregate-kind: string,
+    aggregate-id: string,
+    correlation-id: string,
+    causation-id: option<string>,
+    payload: string,
+  }
+
+  /// Catalog values use JSON because their type is defined by the owning
+  /// blueprint. Every JSON field is bounded by the host to 64 KiB.
+  record entity-reference { entity-id: string }
+  record resolved-read { entity-id: string, context-id: string }
+  variant read-request {
+    entity(entity-reference),
+    values(entity-reference),
+    resolved(resolved-read),
+  }
+  record read-response {
+    entity: string,
+    blueprint: string,
+    direct-values: string,
+    resolved-values: option<string>,
+  }
+
+  record scalar-write {
+    attribute-id: option<string>,
+    attribute-code: option<string>,
+    context-id: string,
+    value: string,
+  }
+  record write-request { entity-id: string, values: list<scalar-write> }
+  record write-response { values: string }
+
+  enum configuration-scope-kind { blueprint, attribute }
+  record configuration-scope {
+    kind: configuration-scope-kind,
+    blueprint-id: string,
+    blueprint-version: s64,
+    attribute-id: option<string>,
+  }
+  record scoped-configuration-update {
+    scope: configuration-scope,
+    value: string,
+  }
+
+  read: func(request: read-request) -> result<read-response, string>;
+  write: func(request: write-request) -> result<write-response, string>;
+  scoped-configuration-get: func(scope: configuration-scope) -> result<option<string>, string>;
+  scoped-configuration-set: func(request: scoped-configuration-update) -> result<_, string>;
+  log: func(level: string, message: string) -> result<_, string>;
+}
+
+interface handler {
+  use api.{event};
+  record command-request { handler: string, payload: string }
+  record command-response { payload: string }
+  handle-event: func(event: event) -> result<_, string>;
+  /// Invoked only through a manifest-declared, authorized client command.
+  handle-command: func(request: command-request) -> result<command-response, string>;
+}
+
+world catalog-extension {
+  import api;
+  export handler;
+}

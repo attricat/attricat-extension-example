@@ -1,0 +1,104 @@
+{
+  "manifest_version": 1,
+  "name": "Attricat Example Extension",
+  "version": "0.1.9",
+  "description": "Context-aware computed numeric attributes using safe formulas.",
+  "icons": {
+    "48": "assets/icon-48.svg"
+  },
+  "catalog": {
+    "id": "attricat-extension-example",
+    "host_api": ">=1.1.0, <2.0.0"
+  },
+  "permissions": [
+    "catalog.read",
+    "catalog.write",
+    "events.subscribe",
+    "logging.write",
+    "client.commands",
+    "client.notification",
+    "client.entity_decoration",
+    "client.entity_action"
+  ],
+  "artifacts": [
+    {
+      "id": "server",
+      "kind": "server_wasm",
+      "path": "dist/server.wasm"
+    },
+    {
+      "id": "client",
+      "kind": "client_component",
+      "path": "dist/client.js"
+    }
+  ],
+  "configuration": {
+    "version": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  },
+  "server": {
+    "event_handlers": [
+      {
+        "id": "recalculate-on-attribute-change",
+        "event_types": [
+          "entity.updated.v1"
+        ],
+        "handler": "handle-event"
+      }
+    ],
+    "commands": [
+      {
+        "id": "preview-formula",
+        "handler": "preview-formula",
+        "request_schema": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
+        "id": "recalculate-formulas",
+        "handler": "recalculate-formulas",
+        "request_schema": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "array"
+        }
+      }
+    ]
+  },
+  "ui": [
+    {
+      "id": "formula-inspector",
+      "version": 1,
+      "kind": "element",
+      "artifact": "client",
+      "element": "attricat-formula-inspector",
+      "outlet": "entity_preview_panel"
+    },
+    {
+      "id": "computed-value-indicator",
+      "version": 1,
+      "kind": "element",
+      "artifact": "client",
+      "element": "attricat-computed-value-indicator",
+      "outlet": "entity_attribute_decoration"
+    },
+    {
+      "id": "recalculate-formulas-action",
+      "version": 1,
+      "kind": "element",
+      "artifact": "client",
+      "element": "attricat-recalculate-formulas",
+      "outlet": "entity_action"
+    }
+  ]
+}

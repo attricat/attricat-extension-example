@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://attricat.dev/schemas/attricat-extension-example/formula-metadata.v1.json",
+  "title": "Formula TOML extension metadata",
+  "description": "Place this table in a blueprint definition at [extensions.attricat-extension-example.formulas]. Keys are numeric target attribute codes and values are expressions using attribute codes.",
+  "type": "object",
+  "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 4096 }
+}

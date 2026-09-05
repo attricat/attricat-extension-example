@@ -1,0 +1,15 @@
+[package]
+name = "attricat-extension-example-server"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+attricat-extension-example-formula-core = { path = "../formula-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+wit-bindgen = "0.57.1"

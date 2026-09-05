@@ -1,0 +1,3 @@
+[workspace]
+members = ["server/formula-core", "server/component"]
+resolver = "2"
