@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Context-aware computed numeric attributes using safe formulas.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -27,9 +27,19 @@
       "path": "dist/server.wasm"
     },
     {
-      "id": "client",
+      "id": "formula-inspector-client",
       "kind": "client_component",
-      "path": "dist/client.js"
+      "path": "dist/inspector.js"
+    },
+    {
+      "id": "computed-value-indicator-client",
+      "kind": "client_component",
+      "path": "dist/decoration.js"
+    },
+    {
+      "id": "recalculate-formulas-client",
+      "kind": "client_component",
+      "path": "dist/action.js"
     }
   ],
   "configuration": {
@@ -79,25 +89,22 @@
     {
       "id": "formula-inspector",
       "version": 1,
-      "kind": "element",
-      "artifact": "client",
-      "element": "attricat-formula-inspector",
+      "kind": "embedded",
+      "artifact": "formula-inspector-client",
       "outlet": "entity_preview_panel"
     },
     {
       "id": "computed-value-indicator",
       "version": 1,
-      "kind": "element",
-      "artifact": "client",
-      "element": "attricat-computed-value-indicator",
+      "kind": "embedded",
+      "artifact": "computed-value-indicator-client",
       "outlet": "entity_attribute_decoration"
     },
     {
       "id": "recalculate-formulas-action",
       "version": 1,
-      "kind": "element",
-      "artifact": "client",
-      "element": "attricat-recalculate-formulas",
+      "kind": "embedded",
+      "artifact": "recalculate-formulas-client",
       "outlet": "entity_action"
     }
   ]

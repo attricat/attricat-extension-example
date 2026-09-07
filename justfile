@@ -4,10 +4,10 @@
 # manifest and every artifact path declared by that manifest.
 
 extension_id := "attricat-extension-example"
-version := "0.1.9"
+version := "0.1.10"
 dist_dir := "dist"
 stage_dir := "dist/package"
-archive := "dist/attricat-extension-example-0.1.9.tar.zst"
+archive := "dist/attricat-extension-example-0.1.10.tar.zst"
 
 # Run all implementation checks that are available before the component runtime
 # lands. This is the default target for contributors.
@@ -36,16 +36,21 @@ verify-artifacts:
     echo "Missing {{dist_dir}}/server.wasm (must be a catalog:host WASM component)." >&2
     exit 1
   }
-  test -s {{dist_dir}}/client.js || {
-    echo "Missing {{dist_dir}}/client.js (must register the manifest custom element)." >&2
-    exit 1
-  }
+  for artifact in inspector.js decoration.js action.js; do
+    test -s "{{dist_dir}}/$artifact" || {
+      echo "Missing {{dist_dir}}/$artifact (must export mount(root, catalog))." >&2
+      exit 1
+    }
+  done
 
-# The client is a dependency-free custom element. It is copied rather than
-# bundled so the release artifact remains inspectable as reference code.
+# Each embedded outlet has its own dependency-free ES module. The host calls
+# mount(root, catalog) in an opaque iframe, so an artifact cannot register a
+# host-DOM custom element or infer which contribution mounted it.
 build-client:
   mkdir -p {{dist_dir}}
-  cp client/index.js {{dist_dir}}/client.js
+  cp client/inspector.js {{dist_dir}}/inspector.js
+  cp client/decoration.js {{dist_dir}}/decoration.js
+  cp client/action.js {{dist_dir}}/action.js
 
 # Build a component with only the catalog host import. wasm32-wasip2 would
 # import ambient WASI interfaces, which Attricat intentionally does not link.
@@ -75,7 +80,7 @@ pack: build
   mkdir -p {{stage_dir}}/{{dist_dir}}
   cp manifest.json README.md {{stage_dir}}/
   cp -R assets {{stage_dir}}/
-  cp {{dist_dir}}/server.wasm {{dist_dir}}/client.js {{stage_dir}}/{{dist_dir}}/
+  cp {{dist_dir}}/server.wasm {{dist_dir}}/inspector.js {{dist_dir}}/decoration.js {{dist_dir}}/action.js {{stage_dir}}/{{dist_dir}}/
   rm -f {{archive}}
   (cd {{stage_dir}} && tar -cf - manifest.json README.md assets {{dist_dir}}) | zstd -q -o {{archive}}
   echo "Created {{archive}}"

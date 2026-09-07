@@ -34,6 +34,11 @@ recomputes its targets in the same context.
 
 ## UI contributions
 
+The package uses the current embedded-client contract. Each contribution has a
+separate `client_component` ES module that exports `mount(root, catalog)`; the
+host loads it in a sandboxed opaque-origin iframe. Extensions neither register
+custom elements in the host document nor choose DOM selectors.
+
 - Add formulas directly in the blueprint TOML under
   `[extensions.attricat-extension-example.formulas]`; no separate extension
   configuration panel is used.
@@ -41,6 +46,10 @@ recomputes its targets in the same context.
 - **Entity inspector** shows every target, expression, resolved inputs, selected
   context, result/error, and provides recalculation.
 - **Entity action** is rendered only when that entity's blueprint has formulas.
+
+Each mounted client listens for `catalog:context-changed.v1` on its supplied
+root and rerenders from the mediated `catalog.context`, so it does not retain
+stale entity or context data.
 
 ## Test against the running Attricat development server
 
@@ -74,7 +83,7 @@ just pack
 wasm-tools component wit dist/server.wasm
 ```
 
-`just pack` creates `dist/attricat-extension-example-0.1.9.tar.zst`. For a
+`just pack` creates `dist/attricat-extension-example-0.1.10.tar.zst`. For a
 side-loaded update, replace the prior sideloaded release with that archive,
 re-grant the manifest capabilities (updates clear grants), then enable the
 release. Restart the Catalog API after deploying host-side blueprint-parser
