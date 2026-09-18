@@ -4,10 +4,10 @@
 # manifest and every artifact path declared by that manifest.
 
 extension_id := "attricat-extension-example"
-version := "0.1.10"
+version := "0.1.14"
 dist_dir := "dist"
 stage_dir := "dist/package"
-archive := "dist/attricat-extension-example-0.1.10.tar.zst"
+archive := "dist/attricat-extension-example-0.1.14.tar.zst"
 
 # Run all implementation checks that are available before the component runtime
 # lands. This is the default target for contributors.
@@ -36,21 +36,24 @@ verify-artifacts:
     echo "Missing {{dist_dir}}/server.wasm (must be a catalog:host WASM component)." >&2
     exit 1
   }
-  for artifact in inspector.js decoration.js action.js; do
+  for artifact in app.js inspector.js decoration.js action.js table-cell.js row-action.js; do
     test -s "{{dist_dir}}/$artifact" || {
       echo "Missing {{dist_dir}}/$artifact (must export mount(root, catalog))." >&2
       exit 1
     }
   done
 
-# Each embedded outlet has its own dependency-free ES module. The host calls
-# mount(root, catalog) in an opaque iframe, so an artifact cannot register a
-# host-DOM custom element or infer which contribution mounted it.
+# Each contribution is a self-contained ES module. The route application is
+# bundled with Preact so it has no external imports in Catalog's opaque iframe.
+# The host calls mount(root, catalog), so artifacts cannot register host-DOM
+# custom elements or infer which contribution mounted them.
 build-client:
-  mkdir -p {{dist_dir}}
+  pnpm run build
   cp client/inspector.js {{dist_dir}}/inspector.js
   cp client/decoration.js {{dist_dir}}/decoration.js
   cp client/action.js {{dist_dir}}/action.js
+  cp client/table-cell.js {{dist_dir}}/table-cell.js
+  cp client/row-action.js {{dist_dir}}/row-action.js
 
 # Build a component with only the catalog host import. wasm32-wasip2 would
 # import ambient WASI interfaces, which Attricat intentionally does not link.
@@ -80,7 +83,7 @@ pack: build
   mkdir -p {{stage_dir}}/{{dist_dir}}
   cp manifest.json README.md {{stage_dir}}/
   cp -R assets {{stage_dir}}/
-  cp {{dist_dir}}/server.wasm {{dist_dir}}/inspector.js {{dist_dir}}/decoration.js {{dist_dir}}/action.js {{stage_dir}}/{{dist_dir}}/
+  cp {{dist_dir}}/server.wasm {{dist_dir}}/app.js {{dist_dir}}/inspector.js {{dist_dir}}/decoration.js {{dist_dir}}/action.js {{dist_dir}}/table-cell.js {{dist_dir}}/row-action.js {{stage_dir}}/{{dist_dir}}/
   rm -f {{archive}}
   (cd {{stage_dir}} && tar -cf - manifest.json README.md assets {{dist_dir}}) | zstd -q -o {{archive}}
   echo "Created {{archive}}"

@@ -34,14 +34,28 @@ recomputes its targets in the same context.
 
 ## UI contributions
 
-The package uses the current embedded-client contract. Each contribution has a
-separate `client_component` ES module that exports `mount(root, catalog)`; the
-host loads it in a sandboxed opaque-origin iframe. Extensions neither register
-custom elements in the host document nor choose DOM selectors.
+The package follows the current extension authoring contract. Every client
+artifact exports `mount(root, catalog)` and runs in its own sandboxed,
+opaque-origin iframe. It has no host DOM, browser routing, cookies, storage, or
+network access; Catalog mediates only the capabilities declared in the
+manifest. Contributions neither register custom elements in the host document
+nor choose DOM selectors.
+
+**Formula workbench** is a `route` contribution at Catalog's host-owned URL:
+
+```text
+/extensions/attricat-extension-example/formula-workbench
+```
+
+Inside that one host route, its bundled Preact application has two in-memory
+routes: **Formula workbench** (`/overview`) and **Formula configuration**
+(`/formulas`). The iframe keeps the host URL unchanged, as required by the
+extension route contract; the application owns only its internal screen state.
 
 - Add formulas directly in the blueprint TOML under
   `[extensions.attricat-extension-example.formulas]`; no separate extension
-  configuration panel is used.
+  configuration panel is used. The Formula configuration app screen documents
+  this exact metadata shape.
 - **Attribute decoration** renders `⚡ Computed` only for TOML-configured targets.
 - **Entity inspector** shows every target, expression, resolved inputs, selected
   context, result/error, and provides recalculation.
@@ -83,7 +97,8 @@ just pack
 wasm-tools component wit dist/server.wasm
 ```
 
-`just pack` creates `dist/attricat-extension-example-0.1.10.tar.zst`. For a
+`just pack` creates `dist/attricat-extension-example-0.1.14.tar.zst`. It uses
+`pnpm` to bundle the self-contained Preact route artifact. For a
 side-loaded update, replace the prior sideloaded release with that archive,
 re-grant the manifest capabilities (updates clear grants), then enable the
 release. Restart the Catalog API after deploying host-side blueprint-parser

@@ -1,0 +1,14 @@
+{
+  "name": "attricat-extension-example-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"import('esbuild').then(({build}) => build({entryPoints:['client/app.jsx'],bundle:true,format:'esm',target:'es2022',jsxFactory:'h',jsxFragment:'Fragment',outfile:'dist/app.js'}))\""
+  },
+  "dependencies": {
+    "preact": "^10.26.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.2"
+  }
+}
