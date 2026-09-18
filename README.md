@@ -47,10 +47,13 @@ nor choose DOM selectors.
 /extensions/attricat-extension-example/formula-workbench
 ```
 
-Inside that one host route, its bundled Preact application has two in-memory
-routes: **Formula workbench** (`/overview`) and **Formula configuration**
-(`/formulas`). The iframe keeps the host URL unchanged, as required by the
-extension route contract; the application owns only its internal screen state.
+The manifest also declares a host-owned **Formula workbench** navigation entry
+that targets this route. Catalog owns its path, active state, grouping, and
+workspace-configured ordering. Inside that one host route, its bundled Preact
+application has two in-memory routes: **Formula workbench** (`/overview`) and
+**Formula configuration** (`/formulas`). The iframe keeps the host URL
+unchanged, as required by the extension route contract; the application owns
+only its internal screen state.
 
 - Add formulas directly in the blueprint TOML under
   `[extensions.attricat-extension-example.formulas]`; no separate extension
@@ -97,7 +100,7 @@ just pack
 wasm-tools component wit dist/server.wasm
 ```
 
-`just pack` creates `dist/attricat-extension-example-0.1.14.tar.zst`. It uses
+`just pack` creates `dist/attricat-extension-example-0.1.15.tar.zst`. It uses
 `pnpm` to bundle the self-contained Preact route artifact. For a
 side-loaded update, replace the prior sideloaded release with that archive,
 re-grant the manifest capabilities (updates clear grants), then enable the

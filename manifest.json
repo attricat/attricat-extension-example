@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Context-aware computed numeric attributes using safe formulas.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -108,6 +108,13 @@
       "version": 1,
       "kind": "route",
       "artifact": "formula-workbench-client",
+      "title": "Formula workbench"
+    },
+    {
+      "id": "formula-workbench-nav",
+      "version": 1,
+      "kind": "navigation",
+      "route": "formula-workbench",
       "title": "Formula workbench"
     },
     {

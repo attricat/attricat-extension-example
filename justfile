@@ -4,10 +4,10 @@
 # manifest and every artifact path declared by that manifest.
 
 extension_id := "attricat-extension-example"
-version := "0.1.14"
+version := "0.1.15"
 dist_dir := "dist"
 stage_dir := "dist/package"
-archive := "dist/attricat-extension-example-0.1.14.tar.zst"
+archive := "dist/attricat-extension-example-0.1.15.tar.zst"
 
 # Run all implementation checks that are available before the component runtime
 # lands. This is the default target for contributors.
