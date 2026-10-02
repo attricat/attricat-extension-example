@@ -195,6 +195,15 @@ export const mount = (root, catalog) => {
     }
   });
   close.addEventListener('click', () => catalog.dialog.close());
+  // Key presses inside this sandboxed frame never reach the host page, so the
+  // host dialog cannot see Escape. Close it explicitly.
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      void catalog.dialog.close();
+    }
+  };
+  document.addEventListener('keydown', onKeyDown);
 
   root.addEventListener('catalog:theme-changed.v1', applyTheme);
   applyTheme();
@@ -217,6 +226,7 @@ export const mount = (root, catalog) => {
 
   return () => {
     disposed = true;
+    document.removeEventListener('keydown', onKeyDown);
     clearTimeout(timer);
     root.removeEventListener('catalog:theme-changed.v1', applyTheme);
     root.replaceChildren();
