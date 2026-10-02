@@ -1,0 +1,53 @@
+{
+  "manifest_version": 1,
+  "name": "Reference documents",
+  "version": "1.0.0",
+  "description": "Generates PDF documents for one entity or an Explorer selection and records extension-owned annotations.",
+  "icons": { "48": "icon.svg" },
+  "catalog": { "id": "attricat.reference-documents", "host_api": ">=1.5.0, <2.0.0" },
+  "permissions": [
+    "catalog.read",
+    "catalog.annotations.write",
+    "artifacts.write",
+    "client.entity_action",
+    "client.explorer_row_action",
+    "client.explorer_bulk_action",
+    "client.action_dialog",
+    "client.operations.start",
+    "client.operations.read",
+    "client.operations.cancel"
+  ],
+  "configuration": { "version": 1, "schema": { "type": "object", "additionalProperties": false } },
+  "artifacts": [
+    { "id": "server", "kind": "server_wasm", "path": "server.wasm" },
+    { "id": "action", "kind": "client_component", "path": "action.js" },
+    { "id": "dialog", "kind": "client_component", "path": "dialog.js" }
+  ],
+  "server": {
+    "operations": [
+      {
+        "id": "generate-documents",
+        "handler": "generate-documents",
+        "request_schema": {
+          "type": "object",
+          "required": ["template", "template_version", "output"],
+          "properties": {
+            "template": { "type": "string", "enum": ["summary", "label"] },
+            "template_version": { "type": "integer", "const": 1 },
+            "output": { "type": "string", "enum": ["individual", "zip", "combined"] }
+          },
+          "additionalProperties": false
+        },
+        "max_request_bytes": 1024,
+        "max_checkpoint_bytes": 65536,
+        "interactive": { "version": 1, "max_selection": 50 }
+      }
+    ]
+  },
+  "ui": [
+    { "id": "preview-action", "version": 2, "kind": "embedded", "artifact": "action", "outlet": "entity_action" },
+    { "id": "row-action", "version": 2, "kind": "action", "artifact": "action", "outlet": "explorer_row_action" },
+    { "id": "bulk-action", "version": 2, "kind": "action", "artifact": "action", "outlet": "explorer_bulk_action" },
+    { "id": "generate-dialog", "version": 1, "kind": "dialog", "artifact": "dialog", "outlet": "action_dialog", "title": "Generate documents" }
+  ]
+}
