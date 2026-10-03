@@ -107,3 +107,30 @@ re-grant the manifest capabilities (updates clear grants), then enable the
 release. Restart the Catalog API after deploying host-side blueprint-parser
 changes. The archive contains only the manifest, icon, README, and declared
 server/client artifacts.
+
+## Reference documents extension (`documents/`)
+
+`attricat.reference-documents` is the reference workflow for selection-aware
+extension actions and interactive operations (`catalog:host@1.5.0`). It adds a
+**Generate document(s)** action to the entity preview, the Explorer row menu
+and the Explorer selection toolbar. Each opens the host-managed dialog, which
+captures the selection and starts the `generate-documents` operation with a
+template (`summary` or `label`) and an output mode (separate PDFs, a stored ZIP
+archive, or one combined PDF).
+
+The server component reads the run's frozen selection one entity per batch,
+captures each entity's rendering input once (with a SHA-256 fingerprint),
+renders a PDF from that capture, and checkpoints every step so a retried batch
+appends identical bytes. Successfully finalized entities receive the
+`attricat.reference-documents:document-generated` tag and
+`last_document` metadata in the extension's own namespace; combined outputs
+annotate only after the archive or PDF is finalized. Every run also produces a
+`report.json` with per-entity results, including annotation failures.
+
+Intentional failure: the `summary` template fails an entity that has no saved
+values, and the `label` template fails an entity without a `title`/`name`
+string. These entities are reported as failed in the run outcome and report;
+the run itself still completes.
+
+`just check` tests the crate and checks it for `wasm32-unknown-unknown`;
+`just pack` also writes `dist/reference-documents.tar.zst`.

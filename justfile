@@ -19,7 +19,7 @@ fmt:
 test:
   cargo test --workspace
 
-check: fmt test
+check: fmt test check-documents
 
 # Build the host-independent formula implementation. The server component will
 # link this crate once Attricat's next-version WIT bindings are available.
@@ -76,7 +76,7 @@ build: check build-core build-client build-server verify-artifacts
 # Produce the archive accepted by Attricat's extension installer. The staging
 # directory makes the archive layout explicit and avoids packaging source,
 # tests, or build intermediates.
-pack: build
+pack: build && pack-documents
   #!/usr/bin/env bash
   set -euo pipefail
   rm -rf {{stage_dir}}
@@ -90,3 +90,25 @@ pack: build
 
 clean:
   rm -rf {{dist_dir}} target
+
+# The reference document extension uses the interactive catalog:host@1.5.0
+# operation world (selection reads, annotations, streamed artifacts).
+documents_archive := "dist/reference-documents.tar.zst"
+documents_stage := "dist/documents-package"
+
+check-documents:
+  cargo test -p attricat-reference-documents
+  cargo check --target wasm32-unknown-unknown -p attricat-reference-documents
+
+pack-documents:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  command -v wasm-tools >/dev/null || { echo "Install wasm-tools: cargo install wasm-tools --locked" >&2; exit 1; }
+  cargo build --release --target wasm32-unknown-unknown -p attricat-reference-documents
+  rm -rf {{documents_stage}}
+  mkdir -p {{documents_stage}}
+  wasm-tools component new target/wasm32-unknown-unknown/release/attricat_reference_documents.wasm -o {{documents_stage}}/server.wasm
+  cp documents/manifest.json documents/icon.svg documents/client/action.js documents/client/dialog.js {{documents_stage}}/
+  rm -f {{documents_archive}}
+  (cd {{documents_stage}} && tar -cf - manifest.json icon.svg server.wasm action.js dialog.js) | zstd -q -o {{documents_archive}}
+  echo "Created {{documents_archive}}"
