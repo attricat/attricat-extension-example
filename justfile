@@ -4,13 +4,11 @@
 # manifest and every artifact path declared by that manifest.
 
 extension_id := "attricat-extension-example"
-version := "0.1.15"
+version := `node -p "require('./manifest.json').version"`
 dist_dir := "dist"
 stage_dir := "dist/package"
-archive := "dist/attricat-extension-example-0.1.15.tar.zst"
+archive := dist_dir / extension_id + "-" + version + ".tar.zst"
 
-# Run all implementation checks that are available before the component runtime
-# lands. This is the default target for contributors.
 default: check
 
 fmt:
@@ -21,72 +19,51 @@ test:
 
 check: fmt test check-documents
 
-# Build the host-independent formula implementation. The server component will
-# link this crate once Attricat's next-version WIT bindings are available.
-build-core:
-  cargo build --release -p attricat-extension-example-formula-core
-
-# Validate that the two release artifacts produced by the server/client build
-# steps exist. Keeping this check separate prevents packaging a native Rust
-# library or a placeholder WASM module as an Attricat server component.
-verify-artifacts:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  test -s {{dist_dir}}/server.wasm || {
-    echo "Missing {{dist_dir}}/server.wasm (must be a catalog:host WASM component)." >&2
-    exit 1
-  }
-  for artifact in app.js inspector.js decoration.js action.js table-cell.js row-action.js; do
-    test -s "{{dist_dir}}/$artifact" || {
-      echo "Missing {{dist_dir}}/$artifact (must export mount(root, catalog))." >&2
-      exit 1
-    }
-  done
-
-# Each contribution is a self-contained ES module. The route application is
-# bundled with Preact so it has no external imports in Catalog's opaque iframe.
-# The host calls mount(root, catalog), so artifacts cannot register host-DOM
-# custom elements or infer which contribution mounted them.
+# Every client contribution is bundled into one self-contained ES module per
+# manifest artifact (scripts/build-client.mjs). Catalog imports each into its
+# own sandboxed, opaque-origin iframe and calls mount(root, catalog).
 build-client:
   pnpm run build
-  cp client/inspector.js {{dist_dir}}/inspector.js
-  cp client/decoration.js {{dist_dir}}/decoration.js
-  cp client/action.js {{dist_dir}}/action.js
-  cp client/table-cell.js {{dist_dir}}/table-cell.js
-  cp client/row-action.js {{dist_dir}}/row-action.js
 
-# Build a component with only the catalog host import. wasm32-wasip2 would
-# import ambient WASI interfaces, which Attricat intentionally does not link.
+# Build a component that imports only the unified catalog:host@1.6.0 ABI.
+# wasm32-wasip2 would import ambient WASI interfaces, which Attricat never links.
 build-server:
   #!/usr/bin/env bash
   set -euo pipefail
   command -v wasm-tools >/dev/null || { echo "Install wasm-tools: cargo install wasm-tools --locked" >&2; exit 1; }
   rustup target add wasm32-unknown-unknown
-  if [[ "$(uname)" == "Darwin" ]]; then
-    sysroot="$(rustc --print sysroot)"
-    export DYLD_FALLBACK_LIBRARY_PATH="$sysroot/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
-  fi
   cargo build --release --target wasm32-unknown-unknown -p attricat-extension-example-server
   mkdir -p {{dist_dir}}
   wasm-tools component new target/wasm32-unknown-unknown/release/attricat_extension_example_server.wasm -o {{dist_dir}}/server.wasm
+  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'catalog:host/.*@1\.6\.0'; then
+    echo "server.wasm imports something other than catalog:host@1.6.0" >&2; exit 1
+  fi
 
-# Build, validate, and package the extension.
-build: check build-core build-client build-server verify-artifacts
+# Every artifact path declared by the manifest must exist and be non-empty.
+verify-artifacts:
+  node -e "const m=require('./manifest.json'),fs=require('fs');for(const a of m.artifacts){if(!fs.existsSync(a.path)||!fs.statSync(a.path).size){console.error('Missing '+a.path);process.exit(1)}}"
 
-# Produce the archive accepted by Attricat's extension installer. The staging
-# directory makes the archive layout explicit and avoids packaging source,
-# tests, or build intermediates.
+build: check build-client build-server verify-artifacts
+
+# Produce the archive accepted by Catalog's installer: the manifest at the root
+# plus exactly the files it declares (and the README and icon).
 pack: build && pack-documents
   #!/usr/bin/env bash
   set -euo pipefail
   rm -rf {{stage_dir}}
-  mkdir -p {{stage_dir}}/{{dist_dir}}
+  mkdir -p {{stage_dir}}
   cp manifest.json README.md {{stage_dir}}/
   cp -R assets {{stage_dir}}/
-  cp {{dist_dir}}/server.wasm {{dist_dir}}/app.js {{dist_dir}}/inspector.js {{dist_dir}}/decoration.js {{dist_dir}}/action.js {{dist_dir}}/table-cell.js {{dist_dir}}/row-action.js {{stage_dir}}/{{dist_dir}}/
+  files=$(node -p "require('./manifest.json').artifacts.map(a => a.path).join(' ')")
+  for file in $files; do mkdir -p "{{stage_dir}}/$(dirname "$file")"; cp "$file" "{{stage_dir}}/$file"; done
   rm -f {{archive}}
-  (cd {{stage_dir}} && tar -cf - manifest.json README.md assets {{dist_dir}}) | zstd -q -o {{archive}}
+  (cd {{stage_dir}} && tar -cf - manifest.json README.md assets $files) | zstd -q -o {{archive}}
   echo "Created {{archive}}"
+
+# Browser + API verification against a running dev server (see e2e/verify.mjs).
+# Requires CATALOG_WEB_URL and CATALOG_SESSION_FILE.
+e2e:
+  node e2e/verify.mjs
 
 clean:
   rm -rf {{dist_dir}} target
