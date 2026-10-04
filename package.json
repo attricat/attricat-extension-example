@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"import('esbuild').then(({build}) => build({entryPoints:['client/app.jsx'],bundle:true,format:'esm',target:'es2022',jsxFactory:'h',jsxFragment:'Fragment',outfile:'dist/app.js'}))\""
+    "build": "node scripts/build-client.mjs",
+    "e2e": "node e2e/verify.mjs"
   },
   "dependencies": {
     "preact": "^10.26.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "esbuild": "^0.25.2"
   }
 }

@@ -1,26 +1,42 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.1.15",
-  "description": "Context-aware computed numeric attributes using safe formulas.",
+  "version": "0.2.0",
+  "description": "Context-aware computed numeric attributes: a tour of the unified catalog:host 1.6 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
   },
   "catalog": {
     "id": "attricat-extension-example",
-    "host_api": ">=1.1.0, <2.0.0"
+    "host_api": ">=1.6.0, <2.0.0"
   },
   "permissions": [
     "catalog.read",
     "catalog.write",
+    "catalog.annotations.write",
+    "artifacts.write",
     "events.subscribe",
+    "events.emit",
+    "storage.extension",
+    "configuration.write",
     "logging.write",
     "client.commands",
+    "client.events",
+    "client.navigation",
     "client.notification",
+    "client.refresh",
     "client.entity_decoration",
     "client.entity_action",
     "client.explorer_table_cell",
-    "client.explorer_row_action"
+    "client.explorer_row_action",
+    "client.explorer_bulk_action",
+    "client.action_dialog",
+    "client.operations.start",
+    "client.operations.read",
+    "client.blueprint_configuration",
+    "client.entity_attribute_panel",
+    "client.blueprint_detail_panel",
+    "client.data_health_card"
   ],
   "artifacts": [
     {
@@ -29,34 +45,59 @@
       "path": "dist/server.wasm"
     },
     {
-      "id": "formula-workbench-client",
+      "id": "app",
       "kind": "client_component",
       "path": "dist/app.js"
     },
     {
-      "id": "formula-inspector-client",
+      "id": "inspector",
       "kind": "client_component",
       "path": "dist/inspector.js"
     },
     {
-      "id": "computed-value-indicator-client",
+      "id": "decoration",
       "kind": "client_component",
       "path": "dist/decoration.js"
     },
     {
-      "id": "recalculate-formulas-client",
+      "id": "entity-action",
       "kind": "client_component",
-      "path": "dist/action.js"
+      "path": "dist/entity-action.js"
     },
     {
-      "id": "example-table-cell-client",
+      "id": "selection-action",
+      "kind": "client_component",
+      "path": "dist/selection-action.js"
+    },
+    {
+      "id": "dialog",
+      "kind": "client_component",
+      "path": "dist/dialog.js"
+    },
+    {
+      "id": "table-cell",
       "kind": "client_component",
       "path": "dist/table-cell.js"
     },
     {
-      "id": "example-row-action-client",
+      "id": "attribute-settings",
       "kind": "client_component",
-      "path": "dist/row-action.js"
+      "path": "dist/attribute-settings.js"
+    },
+    {
+      "id": "attribute-panel",
+      "kind": "client_component",
+      "path": "dist/attribute-panel.js"
+    },
+    {
+      "id": "blueprint-panel",
+      "kind": "client_component",
+      "path": "dist/blueprint-panel.js"
+    },
+    {
+      "id": "health-card",
+      "kind": "client_component",
+      "path": "dist/health-card.js"
     }
   ],
   "configuration": {
@@ -66,6 +107,64 @@
       "additionalProperties": false,
       "properties": {}
     }
+  },
+  "scoped_configuration": {
+    "version": 1,
+    "scopes": [
+      "attribute"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "precision": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "event_contracts": {
+    "exports": [
+      {
+        "id": "formula-recalculated",
+        "version": "1.0.0",
+        "event_type": "plugin.attricat-extension-example.formula_recalculated.v1",
+        "schema": {
+          "type": "object",
+          "required": [
+            "entity_id",
+            "context_id",
+            "target_code",
+            "result"
+          ],
+          "properties": {
+            "entity_id": {
+              "type": "string"
+            },
+            "context_id": {
+              "type": "string"
+            },
+            "target_code": {
+              "type": "string"
+            },
+            "result": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "max_payload_bytes": 1024
+      }
+    ]
   },
   "server": {
     "event_handlers": [
@@ -79,10 +178,58 @@
     ],
     "commands": [
       {
+        "id": "describe-formulas",
+        "handler": "describe-formulas",
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "context_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "entity_id"
+          ],
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
         "id": "preview-formula",
         "handler": "preview-formula",
         "request_schema": {
           "type": "object",
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "expression": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "entity_id",
+            "context_id",
+            "expression"
+          ],
           "additionalProperties": false
         },
         "response_schema": {
@@ -94,10 +241,148 @@
         "handler": "recalculate-formulas",
         "request_schema": {
           "type": "object",
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "context_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "entity_id"
+          ],
           "additionalProperties": false
         },
         "response_schema": {
-          "type": "array"
+          "type": "object"
+        }
+      },
+      {
+        "id": "get-attribute-settings",
+        "handler": "get-attribute-settings",
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer"
+            },
+            "attribute_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          },
+          "required": [
+            "blueprint_id",
+            "blueprint_version",
+            "attribute_id"
+          ],
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
+        "id": "save-attribute-settings",
+        "handler": "save-attribute-settings",
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer"
+            },
+            "attribute_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "precision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "blueprint_id",
+            "blueprint_version",
+            "attribute_id",
+            "settings"
+          ],
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
+        "id": "recent-activity",
+        "handler": "recent-activity",
+        "request_schema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      }
+    ],
+    "operations": [
+      {
+        "id": "recalculate-selection",
+        "handler": "recalculate-selection",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "write",
+                "report"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "max_request_bytes": 256,
+        "max_checkpoint_bytes": 4096,
+        "interactive": {
+          "version": 1,
+          "max_selection": 50
         }
       }
     ]
@@ -107,7 +392,7 @@
       "id": "formula-workbench",
       "version": 1,
       "kind": "route",
-      "artifact": "formula-workbench-client",
+      "artifact": "app",
       "title": "Formula workbench"
     },
     {
@@ -121,48 +406,93 @@
       "id": "formula-inspector",
       "version": 1,
       "kind": "embedded",
-      "artifact": "formula-inspector-client",
+      "artifact": "inspector",
       "outlet": "entity_preview_panel"
     },
     {
       "id": "computed-value-indicator",
       "version": 1,
       "kind": "embedded",
-      "artifact": "computed-value-indicator-client",
+      "artifact": "decoration",
       "outlet": "entity_attribute_decoration"
     },
     {
       "id": "recalculate-formulas-action",
       "version": 1,
       "kind": "embedded",
-      "artifact": "recalculate-formulas-client",
+      "artifact": "entity-action",
       "outlet": "entity_action"
     },
     {
-      "id": "attricat-extension-example.table-cell",
+      "id": "attricat-extension-example.computed-number",
       "version": 1,
       "kind": "embedded",
-      "artifact": "example-table-cell-client",
+      "artifact": "table-cell",
       "outlet": "explorer_table_cell"
     },
     {
-      "id": "example-row-action",
-      "version": 1,
+      "id": "recalculate-selection-row",
+      "version": 2,
       "kind": "action",
-      "artifact": "example-row-action-client",
+      "artifact": "selection-action",
       "outlet": "explorer_row_action"
+    },
+    {
+      "id": "recalculate-selection-bulk",
+      "version": 2,
+      "kind": "action",
+      "artifact": "selection-action",
+      "outlet": "explorer_bulk_action"
+    },
+    {
+      "id": "recalculate-selection-dialog",
+      "version": 1,
+      "kind": "dialog",
+      "artifact": "dialog",
+      "outlet": "action_dialog",
+      "title": "Recalculate formulas"
+    },
+    {
+      "id": "formula-settings",
+      "version": 1,
+      "kind": "embedded",
+      "artifact": "attribute-settings",
+      "outlet": "blueprint_attribute_configuration"
+    },
+    {
+      "id": "formula-attribute-panel",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "attribute-panel",
+      "outlet": "entity_attribute_panel"
+    },
+    {
+      "id": "formula-blueprint-panel",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "blueprint-panel",
+      "outlet": "blueprint_detail_panel"
+    },
+    {
+      "id": "formula-health-card",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "health-card",
+      "outlet": "data_health_card"
     }
   ],
   "cell_renderers": [
     {
-      "id": "attricat-extension-example.table-cell",
+      "id": "attricat-extension-example.computed-number",
       "version": 1,
       "value_types": [
         "number",
-        "integer",
-        "string"
+        "integer"
       ],
-      "allowed_props": []
+      "allowed_props": [
+        "precision",
+        "unit"
+      ]
     }
   ]
 }

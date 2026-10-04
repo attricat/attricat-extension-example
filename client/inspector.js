@@ -1,83 +1,103 @@
-/* Entity-preview embedded contribution for context-aware formulas. */
-const request = (catalog, path) => {
-  if (!catalog?.request) throw new Error('Catalog read access is unavailable.');
-  return catalog.request(path);
+/* entity_preview_panel: every formula of the entity's revision evaluated in the
+ * selected context, an expression preview, and recalculation. Demonstrates
+ * `catalog.command`, `catalog.refresh`, `catalog.notify` and context events. */
+import { command, el, formatNumber, mountRenderer } from './lib.js';
+
+const formulaCard = (formula) => {
+  const evaluation = formula.evaluation;
+  const inputs = Object.entries(evaluation?.inputs ?? {})
+    .map(([code, value]) => `${code} = ${value ?? '—'}`)
+    .join(', ');
+  const status = formula.error
+    ? el('p', { class: 'error' }, formula.error)
+    : evaluation?.missing?.length
+      ? el('p', { class: 'muted' }, `Waiting for: ${evaluation.missing.join(', ')}`)
+      : evaluation
+        ? el(
+            'p',
+            {},
+            'Result ',
+            el('strong', {}, formatNumber(evaluation.result, formula.settings)),
+            formula.up_to_date
+              ? el('span', { class: 'ok' }, ' · up to date')
+              : el('span', { class: 'error' }, ` · stored ${formatNumber(formula.current, formula.settings)}`),
+          )
+        : null;
+  return el(
+    'div',
+    { class: 'card' },
+    el('h3', {}, formula.target_code, ' ', el('span', { class: 'badge' }, '⚡ computed')),
+    el('code', {}, formula.expression),
+    inputs && el('p', { class: 'muted' }, inputs),
+    status,
+  );
 };
-const command = async (catalog, commandId, payload) => {
-  if (!catalog?.command) throw new Error('Catalog command access is unavailable.');
-  const response = await catalog.command({ command_id: commandId, payload });
-  return typeof response?.payload === 'string' ? JSON.parse(response.payload) : response;
-};
-const blueprintPath = (id, version) =>
-  `/api/blueprints/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`;
-const entityPath = (id) => `/api/v1/entities/${encodeURIComponent(id)}`;
-const formulaReferences = (expression) =>
-  [...new Set((expression.match(/\b[A-Za-z_][A-Za-z0-9_-]*\b/g) ?? []).filter((token) =>
-    !['Infinity', 'NaN'].includes(token)
-  ))].sort();
-const formulasFromBlueprint = (blueprint) => {
-  const source = blueprint?.blueprint?.definition ?? blueprint?.definition ?? '';
-  const header = '[extensions.attricat-extension-example.formulas]';
-  const start = source.indexOf(header);
-  const section = start < 0 ? '' : source.slice(start + header.length).split(/\n(?=\[)/, 1)[0];
-  const attributes = new Map((blueprint?.attributes ?? []).map((attribute) => [attribute.code, attribute]));
-  return [...section.matchAll(/^([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"\s*$/gm)].flatMap(([, targetCode, expression]) => {
-    const target = attributes.get(targetCode);
-    return target ? [{ targetAttributeId: target.id, expression, dependencies: formulaReferences(expression).map((code) => attributes.get(code)?.id).filter(Boolean) }] : [];
-  });
-};
-const el = (tag, text) => {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  return node;
-};
-const style = () => {
-  const node = document.createElement('style');
-  node.textContent = ':host{display:block;color:#1f2937;font:14px/1.45 system-ui,sans-serif}section{border:1px solid #d1d5db;border-radius:6px;padding:16px}h2,h3{margin:0 0 8px}p{margin:8px 0}button{margin:4px;border:1px solid #1565c0;border-radius:4px;background:#1565c0;color:#fff;cursor:pointer;padding:6px 10px}button:disabled{cursor:wait;opacity:.65}.error{color:#b91c1c}code{overflow-wrap:anywhere}';
-  return node;
+
+const previewForm = (catalog, context) => {
+  const input = el('input', { 'aria-label': 'Expression to preview', placeholder: 'price_net * 2', size: 24 });
+  const output = el('span', { class: 'muted', 'aria-live': 'polite' });
+  // Frames are sandboxed without `allow-forms`: no form submission, so the
+  // preview runs from the button or the Enter key.
+  const run = async () => {
+    output.className = 'muted';
+    output.textContent = 'Evaluating…';
+    try {
+      const preview = await command(catalog, 'preview-formula', {
+        entity_id: context.entity_id,
+        context_id: context.context_id,
+        expression: input.value,
+      });
+      output.textContent = preview.missing?.length
+        ? `Waiting for: ${preview.missing.join(', ')}`
+        : `= ${formatNumber(preview.result)}`;
+    } catch (error) {
+      output.className = 'error';
+      output.textContent = error.message;
+    }
+  };
+  input.addEventListener('keydown', (event) => event.key === 'Enter' && void run());
+  return el('div', { class: 'row' }, input, el('button', { type: 'button', class: 'secondary', onclick: run }, 'Preview'), output);
 };
 
 export const mount = (root, catalog) => {
-  let disposed = false;
-  const render = async () => {
-    const context = catalog.context ?? {};
-    if (!context.entity_id) return replace('No entity context is available.', true);
-    try {
-      const entity = await request(catalog, entityPath(context.entity_id));
-      const blueprintId = entity.blueprint?.blueprint?.id ?? entity.blueprint_id;
-      const blueprintVersion = entity.blueprint?.blueprint?.version ?? entity.blueprint_version;
-      const blueprint = entity.blueprint?.attributes ? entity.blueprint : await request(catalog, blueprintPath(blueprintId, blueprintVersion));
-      const formulas = formulasFromBlueprint(blueprint);
-      const section = el('section'); section.append(el('h2', 'Computed attributes'));
-      if (!formulas.length) section.append(el('p', 'This blueprint has no formulas.'));
-      for (const formula of formulas) {
-        const target = blueprint.attributes?.find((attribute) => attribute.id === formula.targetAttributeId);
-        const row = el('div'); row.append(el('h3', target?.code ?? formula.targetAttributeId), el('code', formula.expression));
-        row.append(el('p', `Context: ${context.context_id ?? 'default'}`));
-        if (context.context_id) {
-          try {
-            const preview = await command(catalog, 'preview-formula', { entity_id: context.entity_id, context_id: context.context_id, expression: formula.expression });
-            row.append(el('p', `Inputs: ${Object.entries(preview.resolvedInputs ?? {}).map(([key, value]) => `${key}=${value}`).join(', ')}`), el('p', `Result: ${preview.result}`));
-          } catch (error) { row.append(Object.assign(el('p', error.message || 'Evaluation failed.'), { className: 'error' })); }
+  const view = mountRenderer(root, catalog, async (context, isCurrent) => {
+    if (!context.entity_id) return el('p', { class: 'muted' }, 'No entity is selected.');
+    const described = await command(catalog, 'describe-formulas', {
+      entity_id: context.entity_id,
+      context_id: context.context_id ?? null,
+    });
+    if (!isCurrent()) return null;
+    const section = el('section', { class: 'stack', 'aria-labelledby': 'formulas-heading' }, el('h2', { id: 'formulas-heading' }, 'Computed attributes'));
+    if (described.error) section.append(el('p', { class: 'error' }, described.error));
+    if (!described.formulas.length) {
+      section.append(el('p', { class: 'muted' }, 'This blueprint revision declares no formulas.'));
+      return section;
+    }
+    if (!context.context_id) {
+      section.append(el('p', { class: 'muted' }, 'Select a context to evaluate formulas.'));
+    }
+    section.append(...described.formulas.map(formulaCard));
+    if (context.context_id) {
+      const button = el('button', { type: 'button' }, 'Recalculate formulas');
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          const { results } = await command(catalog, 'recalculate-formulas', {
+            entity_id: context.entity_id,
+            context_id: context.context_id,
+          });
+          const written = results.filter((result) => result.written).length;
+          await catalog.notify({ message: written ? `Updated ${written} computed value(s).` : 'Computed values are up to date.' });
+          await catalog.refresh({ target: 'current_entity' });
+          await view.rerender();
+        } catch (error) {
+          await catalog.notify({ message: error.message || 'Recalculation failed.', severity: 'error' });
+          button.disabled = false;
         }
-        section.append(row);
-      }
-      if (formulas.length && context.context_id) {
-        const button = el('button', 'Recalculate formulas'); button.type = 'button';
-        button.addEventListener('click', async () => {
-          button.disabled = true;
-          try { await command(catalog, 'recalculate-formulas', { entity_id: context.entity_id, context_id: context.context_id }); await catalog.notify?.({ message: 'Formulas recalculated.' }); await render(); }
-          catch (error) { await catalog.notify?.({ message: error.message || 'Unable to recalculate formulas.', severity: 'error' }); }
-          finally { button.disabled = false; }
-        });
-        section.append(button);
-      }
-      if (!disposed) root.replaceChildren(style(), section);
-    } catch (error) { replace(error.message || 'Unable to load formulas.', true); }
-  };
-  const replace = (text, error = false) => !disposed && root.replaceChildren(style(), Object.assign(el('p', text), { className: error ? 'error' : '' }));
-  const onContextChange = () => void render();
-  root.addEventListener('catalog:context-changed.v1', onContextChange);
-  void render();
-  return () => { disposed = true; root.removeEventListener('catalog:context-changed.v1', onContextChange); root.replaceChildren(); };
+      });
+      section.append(previewForm(catalog, context), button);
+    }
+    return section;
+  });
+  return view.cleanup;
 };

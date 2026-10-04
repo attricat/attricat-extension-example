@@ -1,117 +1,153 @@
 # attricat-extension-example
 
-`attricat-extension-example` is a complete Attricat extension example for
-**context-aware computed numeric attributes**. A formula such as
-`price_gross = price_net * (1 + vat_rate)` is evaluated after an input changes
-and written to the same context as the input.
-
-## How it works
-
-The server component uses only the public `catalog:host/api@1.1.0` Component
-ABI. It reads host-resolved values, so fallback and context selection retain
-Attricat semantics; it does not implement context fallback itself. Derived
-writes have the host's extension provenance (`extension:<extension-id>`), and
-writes are skipped when the target's direct resolved value is already equal to
-the calculated value.
-
-Formula text permits numeric literals, attribute **codes**, `+`, `-`, `*`, `/`,
-unary minus, and parentheses. Formulas live in the immutable blueprint TOML,
-under this extension's namespace:
+`attricat-extension-example` is the reference Attricat extension. It implements
+one feature end to end, **context-aware computed numeric attributes**, and
+uses it to show nearly every part of the extension system in a single release
+on the unified **`catalog:host@1.6.0`** ABI.
 
 ```toml
 [extensions.attricat-extension-example.formulas]
 price_gross = "price_net * (1 + vat_rate)"
 ```
 
-The table key is the target attribute code and its value is the expression.
-When the saved blueprint revision is evaluated, the extension resolves these
-codes to stable attribute IDs, validates numeric inputs/targets and dependency
-cycles, and uses the entity's pinned revision. The core host preserves
-namespaced `[extensions.<extension-id>]` TOML metadata while retaining strict
-validation of its own blueprint fields. Formula recalculation is triggered by
-Catalog's `entity.updated.v1` value-change event, so saving a dependency value
-recomputes its targets in the same context.
+When `price_net` or `vat_rate` changes in a context, `price_gross` is
+recalculated and written **in that same context**.
 
-## UI contributions
+## What it demonstrates
 
-The package follows the current extension authoring contract. Every client
-artifact exports `mount(root, catalog)` and runs in its own sandboxed,
-opaque-origin iframe. It has no host DOM, browser routing, cookies, storage, or
-network access; Catalog mediates only the capabilities declared in the
-manifest. Contributions neither register custom elements in the host document
-nor choose DOM selectors.
+| Surface | How the extension uses it | Code |
+| --- | --- | --- |
+| Unified 1.6 component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
+| `server.event_handlers` | `entity.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
+| `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
+| Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `catalog-data.batch`, annotates entities, streams a CSV report | `operation.rs` |
+| `scoped_configuration` | Per-attribute rounding and unit for each blueprint revision | `host.rs`, `attribute-settings.js` |
+| `storage.extension` | A per-revision formula index and an activity log, written by the server and read by clients | `activity.rs`, `client/lib.js` |
+| `event_contracts` + `events.emit` | Publishes `plugin.attricat-extension-example.formula_recalculated.v1` | `handler.rs` |
+| `catalog.annotations.write` | Tags checked entities `attricat-extension-example:formulas-checked` | `operation.rs` |
+| `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
+| `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
+| `entity_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
+| `entity_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
+| `entity_action` (v1) | One-click recalculation followed by `catalog.refresh` | `client/entity-action.js` |
+| `explorer_row_action` / `explorer_bulk_action` (v2) | Selection-aware actions that open the host dialog | `client/selection-action.js` |
+| `action_dialog` | Starts and follows the run, downloads the report | `client/dialog.js` |
+| `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
+| `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
+| `entity_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
+| `blueprint_detail_panel` (panel) | The revision's validated formulas | `client/blueprint-panel.js` |
+| `data_health_card` (panel) | Evaluation, write, error and run counters | `client/health-card.js` |
+| Client runtime | `command`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
 
-**Formula workbench** is a `route` contribution at Catalog's host-owned URL:
+The release does not use webhooks (declared by the host but not delivered yet),
+outbound HTTPS (`network.request` needs a public endpoint), secrets, connector
+jobs, or the client capabilities that have no `catalog.*` method yet.
 
-```text
-/extensions/attricat-extension-example/formula-workbench
-```
+## How it works
 
-The manifest also declares a host-owned **Formula workbench** navigation entry
-that targets this route. Catalog owns its path, active state, grouping, and
-workspace-configured ordering. Inside that one host route, its bundled Preact
-application has two in-memory routes: **Formula workbench** (`/overview`) and
-**Formula configuration** (`/formulas`). The iframe keeps the host URL
-unchanged, as required by the extension route contract; the application owns
-only its internal screen state.
+### Formulas
 
-- Add formulas directly in the blueprint TOML under
-  `[extensions.attricat-extension-example.formulas]`; no separate extension
-  configuration panel is used. The Formula configuration app screen documents
-  this exact metadata shape.
-- **Attribute decoration** renders `⚡ Computed` only for TOML-configured targets.
-- **Entity inspector** shows every target, expression, resolved inputs, selected
-  context, result/error, and provides recalculation.
-- **Entity action** is rendered only when that entity's blueprint has formulas.
+Formulas are immutable blueprint metadata in the namespaced table above: the
+key is a numeric target attribute code, the value its expression. Expressions
+use numeric literals, numeric attribute codes, `+ - * /`, unary minus and
+parentheses (`server/formula-core`). The server rejects unknown, non-numeric,
+self-referencing and cyclic formulas.
 
-Each mounted client listens for `catalog:context-changed.v1` on its supplied
-root and rerenders from the mediated `catalog.context`, so it does not retain
-stale entity or context data.
+Values are always read already resolved by the host, so context fallback keeps
+Catalog's semantics; the extension never resolves contexts itself. A target is
+written only when its direct value in that context differs from the result.
+Comparison uses a relative tolerance, because Catalog stores decimals
+(`99.99 * 1.23` computes as `122.98769999999999` and reads back as `122.9877`).
+Writes carry the extension's provenance (`extension:attricat-extension-example`).
 
-## Test against the running Attricat development server
+### One component, two exports
 
-End-to-end extension testing must use the currently running Attricat development
-server, not only Rust unit tests. Build a fresh archive, side-load it through
-**Manage → Extensions → Upload archive**, grant every requested capability, and
-enable it. A new side-loaded release replaces the active local installation, so
-repeat the grant/enable steps after each update.
+`server.wasm` targets the combined `catalog-extension` world of
+`catalog:host@1.6.0` (`server/component/wit`):
 
-Use Playwright against that running server to verify installation, enabled state,
-and the feature behavior. For this extension, create/publish a blueprint revision
-containing the TOML formula metadata, migrate or create an entity pinned to that
-revision, write a dependency value in a context, and assert the formula target is
-written in the same context. Do not treat `just check` or `just pack` as an
-end-to-end verification.
+- **`handler`**: the event handler and client commands use the typed `api`
+  imports (`read`, `write`, scoped configuration) and `call` for storage,
+  events and logging.
+- **`operations`**: the interactive run reads only its frozen selection
+  (values already resolved in the run's context) and writes only through
+  `catalog-data.batch`. Direct `api` catalog access is refused inside a run.
+
+Formula problems (an invalid expression, a non-numeric value) are recorded in
+the activity log and the event delivery succeeds; retrying cannot fix them and
+a failed delivery quarantines the extension. Host failures are returned so the
+host retries the delivery.
+
+### Shared state in extension storage
+
+| Key | Writer | Readers |
+| --- | --- | --- |
+| `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read an entity of the revision | decoration, attribute panel, blueprint panel, attribute settings, dialog, interactive run |
+| `activity` | handler, commands, interactive run (optimistic concurrency with retries) | workbench, health card |
+
+The index lets read-only panels (which cannot call commands) and interactive
+runs (which cannot read blueprints) work with validated formulas without
+parsing TOML themselves. A revision is indexed the first time one of its
+entities is updated or inspected.
+
+### Client contributions
+
+Every artifact is a self-contained ES module bundled by
+`scripts/build-client.mjs`, one per manifest artifact. Catalog mounts each in
+its own `sandbox="allow-scripts"` iframe with an opaque origin and no network.
+That has practical consequences that the code follows:
+
+- **Forms never submit.** There is no `allow-forms`, so the `submit` event
+  never fires; use button and key handlers.
+- **Renders are context-driven.** Re-render on `catalog:context-changed.v1`
+  only when the context actually changed, so a pending save or preview isn't
+  discarded.
+- **Theme follows the host.** Read `catalog.theme` and restyle on
+  `catalog:theme-changed.v1`; frames stay mounted.
 
 ## Build, test, and package
-
-Install the prerequisites once:
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-tools --locked
+pnpm install
+
+just check   # fmt + Rust unit tests (formula core, server, documents)
+just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
-Then run:
+`just pack` builds the client bundles and the component, fails if
+`server.wasm` imports anything other than `catalog:host@1.6.0`, and packages
+exactly the files the manifest declares. The release profile optimizes for
+size because the host compiles the component on first use.
 
-```sh
-just check
-just pack
-wasm-tools component wit dist/server.wasm
-```
+## Test against the running development server
 
-`just pack` creates `dist/attricat-extension-example-0.1.15.tar.zst`. It uses
-`pnpm` to bundle the self-contained Preact route artifact. For a
-side-loaded update, replace the prior sideloaded release with that archive,
-re-grant the manifest capabilities (updates clear grants), then enable the
-release. Restart the Catalog API after deploying host-side blueprint-parser
-changes. The archive contains only the manifest, icon, README, and declared
-server/client artifacts.
+Unit tests are not sufficient; verify against a running Attricat (1.6 or
+later) as described in [AGENTS.md](AGENTS.md):
+
+1. Side-load the archive (**Manage → Extensions → Upload archive**, or
+   `acli extension sideload`). Remove the previous installation first if the
+   host refuses a duplicate; removal also clears scoped configuration.
+2. Grant every capability in `manifest.json` and the event publish grant:
+   `acli extension grant --grant-kind event_publish --grant-id formula-recalculated attricat-extension-example`.
+3. Enable the extension, then run the browser + API suite:
+
+   ```sh
+   acli --session-file .acli-session auth login default.local --email "$EMAIL" --password-stdin
+   CATALOG_WEB_URL=http://127.0.0.1:<web-port> CATALOG_SESSION_FILE=.acli-session just e2e
+   ```
+
+`e2e/verify.mjs` creates its own context, blueprint revision (with the formula
+table and a `computed-number` column) and entities, then checks every server
+feature and every UI contribution listed above in Chromium.
 
 ## Reference documents extension (`documents/`)
 
 `attricat.reference-documents` is the reference workflow for selection-aware
-extension actions and interactive operations (`catalog:host@1.5.0`). It adds a
+extension actions and interactive operations on the **legacy**
+`catalog:host@1.5.0` operation world. It is kept on 1.5 on purpose, as a
+compatibility reference for releases built before the unified ABI; new
+extensions should follow the main extension above. It adds a
 **Generate document(s)** action to the entity preview, the Explorer row menu
 and the Explorer selection toolbar. Each opens the host-managed dialog, which
 captures the selection and starts the `generate-documents` operation with a

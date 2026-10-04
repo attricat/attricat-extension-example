@@ -1,28 +1,48 @@
 # Agent instructions
 
+## Host ABI
+
+The main extension targets the unified, additive `catalog:host@1.6.0` ABI
+(`manifest.json` `host_api` `>=1.6.0, <2.0.0`; WIT vendored in
+`server/component/wit`). Copy WIT updates from the host's
+`crates/extension-runtime/wit-host/`; never edit the vendored file by hand and
+never target a legacy `wit-*` world. `just build-server` fails if the component
+imports anything other than `catalog:host@1.6.0`. `documents/` intentionally
+stays on the legacy 1.5 world as a compatibility reference.
+
 ## Extension verification
 
-Test this extension against the **currently running Attricat development server**.
-Unit tests and packaging checks are necessary but are not sufficient to validate
-host integration.
+Test this extension against a **running Attricat development server that
+provides host API 1.6**. Unit tests and packaging checks are necessary but are
+not sufficient to validate host integration.
 
 1. Run `just check` and `just pack`.
-2. Side-load the generated `dist/*.tar.zst` archive into the running Catalog via
-   **Manage → Extensions → Upload archive**.
-3. Grant every requested capability and enable the installed release. Repeat
-   this after each new side-loaded release; upgrades/replacements clear grants.
-4. Use the Playwright CLI against the running dev UI/API to verify installation,
-   enablement, extension UI/runtime contributions, and the target feature.
-5. For formulas, publish a blueprint revision with:
+2. Side-load the generated `dist/attricat-extension-example-<version>.tar.zst`
+   via **Manage → Extensions → Upload archive** (or `acli extension sideload`;
+   remove the previous installation first if the host rejects a duplicate).
+3. Grant every capability in `manifest.json`, plus the event publish grant
+   (`--grant-kind event_publish --grant-id formula-recalculated`), and enable
+   the release. Repeat after each new side-loaded release; upgrades and
+   replacements clear grants, and removal clears scoped configuration.
+4. Run `just e2e` with `CATALOG_WEB_URL` and `CATALOG_SESSION_FILE` (an
+   authenticated `acli --session-file`). It drives the API and the UI with
+   Playwright and must report `All checks passed`. Extend `e2e/verify.mjs`
+   whenever you add or change a contribution, command, or operation.
+5. The suite publishes a blueprint revision with:
 
    ```toml
    [extensions.attricat-extension-example.formulas]
    price_gross = "price_net * (1 + vat_rate)"
    ```
 
-   Then create or migrate an entity to that exact revision, update a dependency
-   in a non-default context, and assert that the target is written in that same
-   context.
+   creates entities on that exact revision, updates dependencies in a
+   non-default context, and asserts that the target is written in that same
+   context. Keep that assertion.
+
+The first invocation of a newly installed release compiles the component in
+the host; on a debug-built API this can take over a minute and briefly time
+out commands or lose an operation lease. Retry rather than changing the
+extension.
 
 When modifying the host blueprint parser, restart the running Catalog API before
 performing the side-load and Playwright verification.
