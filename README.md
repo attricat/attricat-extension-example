@@ -3,7 +3,7 @@
 `attricat-extension-example` is the reference Attricat extension. It implements
 one feature end to end, **context-aware computed numeric attributes**, and
 uses it to show nearly every part of the extension system in a single release
-on the unified **`catalog:host@1.6.0`** ABI.
+on the **`catalog:host@1.0.0`** ABI.
 
 ```toml
 [extensions.attricat-extension-example.formulas]
@@ -17,7 +17,7 @@ recalculated and written **in that same context**.
 
 | Surface | How the extension uses it | Code |
 | --- | --- | --- |
-| Unified 1.6 component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
+| One component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
 | `server.event_handlers` | `entity.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
 | `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
 | Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `catalog-data.batch`, annotates entities, streams a CSV report | `operation.rs` |
@@ -63,7 +63,7 @@ Writes carry the extension's provenance (`extension:attricat-extension-example`)
 ### One component, two exports
 
 `server.wasm` targets the combined `catalog-extension` world of
-`catalog:host@1.6.0` (`server/component/wit`):
+`catalog:host@1.0.0` (`server/component/wit`):
 
 - **`handler`**: the event handler and client commands use the typed `api`
   imports (`read`, `write`, scoped configuration) and `call` for storage,
@@ -116,14 +116,14 @@ just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
 `just pack` builds the client bundles and the component, fails if
-`server.wasm` imports anything other than `catalog:host@1.6.0`, and packages
+`server.wasm` imports anything other than `catalog:host@1.0.0`, and packages
 exactly the files the manifest declares. The release profile optimizes for
 size because the host compiles the component on first use.
 
 ## Test against the running development server
 
-Unit tests are not sufficient; verify against a running Attricat (1.6 or
-later) as described in [AGENTS.md](AGENTS.md):
+Unit tests are not sufficient; verify against a running Attricat as described
+in [AGENTS.md](AGENTS.md):
 
 1. Side-load the archive (**Manage → Extensions → Upload archive**, or
    `acli extension sideload`). Remove the previous installation first if the
@@ -144,10 +144,9 @@ feature and every UI contribution listed above in Chromium.
 ## Reference documents extension (`documents/`)
 
 `attricat.reference-documents` is the reference workflow for selection-aware
-extension actions and interactive operations on the **legacy**
-`catalog:host@1.5.0` operation world. It is kept on 1.5 on purpose, as a
-compatibility reference for releases built before the unified ABI; new
-extensions should follow the main extension above. It adds a
+extension actions and interactive operations. It is an operation-only
+`catalog:host@1.0.0` component (the `operation-extension` world, built from the
+same vendored WIT as the main extension). It adds a
 **Generate document(s)** action to the entity preview, the Explorer row menu
 and the Explorer selection toolbar. Each opens the host-managed dialog, which
 captures the selection and starts the `generate-documents` operation with a

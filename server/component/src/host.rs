@@ -1,4 +1,4 @@
-//! Thin wrappers over the `catalog:host@1.6.0` imports. Every call is checked
+//! Thin wrappers over the `catalog:host@1.0.0` imports. Every call is checked
 //! by the host against this release's granted capabilities.
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Generates PDF documents for one entity or an Explorer selection and records extension-owned annotations.",
   "icons": { "48": "icon.svg" },
-  "catalog": { "id": "attricat.reference-documents", "host_api": ">=1.5.0, <2.0.0" },
+  "catalog": { "id": "attricat.reference-documents", "host_api": ">=1.0.0, <2.0.0" },
   "permissions": [
     "catalog.read",
     "catalog.annotations.write",

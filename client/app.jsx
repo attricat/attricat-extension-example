@@ -27,7 +27,7 @@ const Overview = () => (
     <p>
       Computed numeric attributes declared in blueprint TOML, recalculated in the context where an
       input changes. Every part of this extension exists to show one piece of the{' '}
-      <code>catalog:host@1.6.0</code> extension surface.
+      <code>catalog:host@1.0.0</code> extension surface.
     </p>
     <table>
       <thead>

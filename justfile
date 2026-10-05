@@ -25,7 +25,7 @@ check: fmt test check-documents
 build-client:
   pnpm run build
 
-# Build a component that imports only the unified catalog:host@1.6.0 ABI.
+# Build a component that imports only the catalog:host@1.0.0 ABI.
 # wasm32-wasip2 would import ambient WASI interfaces, which Attricat never links.
 build-server:
   #!/usr/bin/env bash
@@ -35,8 +35,8 @@ build-server:
   cargo build --release --target wasm32-unknown-unknown -p attricat-extension-example-server
   mkdir -p {{dist_dir}}
   wasm-tools component new target/wasm32-unknown-unknown/release/attricat_extension_example_server.wasm -o {{dist_dir}}/server.wasm
-  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'catalog:host/.*@1\.6\.0'; then
-    echo "server.wasm imports something other than catalog:host@1.6.0" >&2; exit 1
+  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'catalog:host/.*@1\.0\.0'; then
+    echo "server.wasm imports something other than catalog:host@1.0.0" >&2; exit 1
   fi
 
 # Every artifact path declared by the manifest must exist and be non-empty.
@@ -68,8 +68,8 @@ e2e:
 clean:
   rm -rf {{dist_dir}} target
 
-# The reference document extension uses the interactive catalog:host@1.5.0
-# operation world (selection reads, annotations, streamed artifacts).
+# The reference document extension is an operation-only catalog:host@1.0.0
+# component (selection reads, annotations, streamed artifacts).
 documents_archive := "dist/reference-documents.tar.zst"
 documents_stage := "dist/documents-package"
 

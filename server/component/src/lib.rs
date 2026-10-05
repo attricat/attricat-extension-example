@@ -1,6 +1,6 @@
 //! Attricat example extension: context-aware computed numeric attributes.
 //!
-//! One component on the unified `catalog:host@1.6.0` ABI exports both
+//! One component on the `catalog:host@1.0.0` ABI exports both
 //! interfaces of the `catalog-extension` world:
 //!
 //! - `handler`: the `entity.updated.v1` event handler and client commands

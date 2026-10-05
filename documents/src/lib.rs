@@ -1,5 +1,5 @@
 //! Reference document generator for Attricat's interactive selection
-//! operations (`catalog:host@1.5.0`).
+//! operations (`catalog:host@1.0.0`, `operation-extension` world).
 //!
 //! Each `process-batch` performs one small step and returns a checkpoint that
 //! fully determines the next step. A replay with the same batch key therefore
@@ -7,7 +7,7 @@
 //! Rendering inputs are captured once per entity and never re-read, so source
 //! edits made after capture cannot change a retried document.
 
-wit_bindgen::generate!({ path: "../wit-interactive", world: "catalog-extension-operation" });
+wit_bindgen::generate!({ path: "../server/component/wit", world: "operation-extension" });
 
 mod pdf;
 mod zip;

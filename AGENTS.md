@@ -2,18 +2,17 @@
 
 ## Host ABI
 
-The main extension targets the unified, additive `catalog:host@1.6.0` ABI
-(`manifest.json` `host_api` `>=1.6.0, <2.0.0`; WIT vendored in
-`server/component/wit`). Copy WIT updates from the host's
-`crates/extension-runtime/wit-host/`; never edit the vendored file by hand and
-never target a legacy `wit-*` world. `just build-server` fails if the component
-imports anything other than `catalog:host@1.6.0`. `documents/` intentionally
-stays on the legacy 1.5 world as a compatibility reference.
+Both extensions target the additive `catalog:host@1.0.0` ABI (`host_api`
+`>=1.0.0, <2.0.0`; WIT vendored in `server/component/wit`, which `documents/`
+also builds against). Copy WIT updates from the host's
+`crates/extension-runtime/wit-host/`; never edit the vendored file by hand.
+`just build-server` fails if the component imports anything other than
+`catalog:host@1.0.0`.
 
 ## Extension verification
 
 Test this extension against a **running Attricat development server that
-provides host API 1.6**. Unit tests and packaging checks are necessary but are
+provides host API 1.0**. Unit tests and packaging checks are necessary but are
 not sufficient to validate host integration.
 
 1. Run `just check` and `just pack`.

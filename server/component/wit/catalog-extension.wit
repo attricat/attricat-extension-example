@@ -1,13 +1,11 @@
-// Unified, evolving extension ABI.
+// The extension host ABI.
 //
-// 1.6 merges the released 1.1 event/command world with the released 1.5
-// operation world. From 1.6 onward this is the only ABI that gains features,
-// and every later 1.x release MUST be a strict superset of the previous one:
-// add new functions, interfaces, types or worlds, but
-// never remove, rename, reorder or change the signature of anything already
-// released here. Released snapshots live in ../wit-released and are checked
-// by `released_host_abis_are_preserved` in the runtime tests. See
-// docs/extensions.md#host-abi-evolution.
+// This package evolves additively: every later 1.x release MUST be a strict
+// superset of the previous one. Add new functions, interfaces, types or
+// worlds, but never remove, rename, reorder or change the signature of
+// anything already released here. Released snapshots live in ../wit-released
+// and are checked by `released_host_abis_are_preserved` in the runtime tests.
+// See docs/extensions.md#host-abi-evolution.
 //
 // Components have no WASI. A component may target the combined
 // `catalog-extension` world or one of the narrower worlds below; the host
@@ -17,7 +15,7 @@
 // catalog, transfer, selection) fail outside an operation run, and direct
 // catalog reads/writes through `api` fail inside one, because operation runs
 // access catalog data only through their run-scoped interfaces.
-package catalog:host@1.6.0;
+package catalog:host@1.0.0;
 
 interface api {
   record event {
@@ -72,7 +70,7 @@ interface api {
   scoped-configuration-get: func(scope: configuration-scope) -> result<option<string>, string>;
   scoped-configuration-set: func(request: scoped-configuration-update) -> result<_, string>;
   /// Generic capability-mediated calls, including secrets.get.v1 and
-  /// network.request.v1. Typed v1.1 methods remain available for Catalog data.
+  /// network.request.v1. Catalog data also has the typed read and write above.
   call: func(operation: string, request: string) -> result<string, string>;
   log: func(level: string, message: string) -> result<_, string>;
 }
