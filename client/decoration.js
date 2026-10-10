@@ -4,12 +4,12 @@
  * stores the index. */
 import { command, el, loadFormulaIndex, mountRenderer } from './lib.js';
 
-export const mount = (root, catalog) =>
-  mountRenderer(root, catalog, async (context) => {
+export const mount = (root, attricat) =>
+  mountRenderer(root, attricat, async (context) => {
     if (!context.attribute_id || !context.blueprint_id) return null;
-    let index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
+    let index = await loadFormulaIndex(attricat, context.blueprint_id, context.blueprint_version);
     if (!index && context.record_id) {
-      index = await command(catalog, 'describe-formulas', { record_id: context.record_id, context_id: null });
+      index = await command(attricat, 'describe-formulas', { record_id: context.record_id, context_id: null });
     }
     const formula = index?.formulas?.find((item) => item.target_attribute_id === context.attribute_id);
     if (!formula) return null;

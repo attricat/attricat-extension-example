@@ -45,7 +45,7 @@ const outcomeText = (progress) => {
   return ` · ${outcome.succeeded ?? 0} generated, ${outcome.failed ?? 0} failed, ${outcome.skipped ?? 0} skipped`;
 };
 
-export const mount = (root, catalog) => {
+export const mount = (root, attricat) => {
   let disposed = false;
   let timer;
   let pendingKey;
@@ -53,7 +53,7 @@ export const mount = (root, catalog) => {
 
   const style = element('style');
   const applyTheme = () => {
-    const c = palette[catalog.theme?.color_mode] ?? palette.light;
+    const c = palette[attricat.theme?.color_mode] ?? palette.light;
     style.textContent = `
       .doc { font: 14px/20px system-ui, sans-serif; color: ${c.fg}; display: grid; gap: 12px; }
       .doc p { margin: 0; color: ${c.muted}; }
@@ -70,7 +70,7 @@ export const mount = (root, catalog) => {
     `;
   };
 
-  const count = catalog.context?.record_ids?.length ?? 0;
+  const count = attricat.context?.record_ids?.length ?? 0;
   const [templateLabel, template] = select('template', 'Template', [
     ['summary', 'Summary sheet'],
     ['label', 'Product label'],
@@ -103,7 +103,7 @@ export const mount = (root, catalog) => {
           textContent: `Download ${artifact.name ?? 'file'}`,
         });
         download.addEventListener('click', () =>
-          catalog.operations
+          attricat.operations
             .download({ run_id: run.id, artifact_id: artifact.id })
             .catch(() => {
               status.textContent = 'The download is no longer available.';
@@ -119,7 +119,7 @@ export const mount = (root, catalog) => {
   const poll = async (runId) => {
     clearTimeout(timer);
     try {
-      const run = await catalog.operations.get({ run_id: runId });
+      const run = await attricat.operations.get({ run_id: runId });
       if (disposed || currentRun?.id !== runId) return;
       showRun(run);
       if (ACTIVE.has(run.status)) timer = setTimeout(() => poll(runId), POLL_MS);
@@ -136,7 +136,7 @@ export const mount = (root, catalog) => {
 
   const refreshRecent = async () => {
     try {
-      const runs = (await catalog.operations.list())
+      const runs = (await attricat.operations.list())
         .filter((run) => run.operation_id === OPERATION)
         .slice(0, RECENT_RUNS);
       if (disposed) return;
@@ -167,7 +167,7 @@ export const mount = (root, catalog) => {
     pendingKey ??= newKey();
     status.textContent = 'Starting…';
     try {
-      const { run_id } = await catalog.operations.start({
+      const { run_id } = await attricat.operations.start({
         operation_id: OPERATION,
         input: { template: template.value, template_version: 1, output: output.value },
         idempotency_key: pendingKey,
@@ -186,7 +186,7 @@ export const mount = (root, catalog) => {
     if (!currentRun) return;
     cancel.disabled = true;
     try {
-      await catalog.operations.cancel({ run_id: currentRun.id });
+      await attricat.operations.cancel({ run_id: currentRun.id });
       poll(currentRun.id);
     } catch {
       status.textContent = 'The run could not be cancelled.';
@@ -194,18 +194,18 @@ export const mount = (root, catalog) => {
       cancel.disabled = false;
     }
   });
-  close.addEventListener('click', () => catalog.dialog.close());
+  close.addEventListener('click', () => attricat.dialog.close());
   // Key presses inside this sandboxed frame never reach the host page, so the
   // host dialog cannot see Escape. Close it explicitly.
   const onKeyDown = (event) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      void catalog.dialog.close();
+      void attricat.dialog.close();
     }
   };
   document.addEventListener('keydown', onKeyDown);
 
-  root.addEventListener('catalog:theme-changed.v1', applyTheme);
+  root.addEventListener('attricat:theme-changed.v1', applyTheme);
   applyTheme();
   root.replaceChildren(
     style,
@@ -228,7 +228,7 @@ export const mount = (root, catalog) => {
     disposed = true;
     document.removeEventListener('keydown', onKeyDown);
     clearTimeout(timer);
-    root.removeEventListener('catalog:theme-changed.v1', applyTheme);
+    root.removeEventListener('attricat:theme-changed.v1', applyTheme);
     root.replaceChildren();
   };
 };

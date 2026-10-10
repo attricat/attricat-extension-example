@@ -1,17 +1,17 @@
 /* action_dialog: starts the interactive `recalculate-selection` operation for
  * the captured selection, follows the run, and downloads its CSV report.
- * Demonstrates `catalog.operations.*` and `catalog.dialog.close`. */
+ * Demonstrates `attricat.operations.*` and `attricat.dialog.close`. */
 import { command, el, installStyles, loadFormulaIndex } from './lib.js';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const mount = (root, catalog) => {
-  const removeStyles = installStyles(root, catalog);
+export const mount = (root, attricat) => {
+  const removeStyles = installStyles(root, attricat);
   let disposed = false;
-  const context = catalog.context ?? {};
+  const context = attricat.context ?? {};
   const ids = context.record_ids ?? [];
-  const close = () => void catalog.dialog.close();
+  const close = () => void attricat.dialog.close();
   const onKey = (event) => event.key === 'Escape' && close();
   document.addEventListener('keydown', onKey);
 
@@ -22,7 +22,7 @@ export const mount = (root, catalog) => {
   const follow = async (runId) => {
     for (;;) {
       if (disposed) return null;
-      const run = await catalog.operations.get({ run_id: runId });
+      const run = await attricat.operations.get({ run_id: runId });
       const progress = run.progress ?? {};
       status.textContent = `${run.status} · ${progress.completed ?? 0}/${progress.total ?? ids.length}`;
       if (TERMINAL.has(run.status)) return run;
@@ -41,7 +41,7 @@ export const mount = (root, catalog) => {
     for (const artifact of run.artifacts ?? []) {
       const artifactId = artifact.id ?? artifact.artifact_id;
       actions.append(
-        el('button', { type: 'button', onclick: () => catalog.operations.download({ run_id: run.id, artifact_id: artifactId }) }, `Download ${artifact.name ?? 'report'}`),
+        el('button', { type: 'button', onclick: () => attricat.operations.download({ run_id: run.id, artifact_id: artifactId }) }, `Download ${artifact.name ?? 'report'}`),
       );
     }
     actions.append(el('button', { type: 'button', class: 'secondary', onclick: close }, 'Close'));
@@ -65,7 +65,7 @@ export const mount = (root, catalog) => {
       start.disabled = true;
       mode.disabled = true;
       try {
-        const { run_id: runId } = await catalog.operations.start({
+        const { run_id: runId } = await attricat.operations.start({
           operation_id: 'recalculate-selection',
           input: { mode: mode.value },
           idempotency_key: `recalc-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -94,8 +94,8 @@ export const mount = (root, catalog) => {
   (async () => {
     try {
       // The run reads formulas from the stored index; make sure it exists.
-      let index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
-      if (!index && ids[0]) index = await command(catalog, 'describe-formulas', { record_id: ids[0], context_id: null });
+      let index = await loadFormulaIndex(attricat, context.blueprint_id, context.blueprint_version);
+      if (!index && ids[0]) index = await command(attricat, 'describe-formulas', { record_id: ids[0], context_id: null });
       if (!disposed) render(index);
     } catch (error) {
       body.replaceChildren(el('p', { class: 'error' }, error.message), el('button', { type: 'button', onclick: close }, 'Close'));

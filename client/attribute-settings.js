@@ -3,8 +3,8 @@
  * handler, commands and the interactive run all round with these settings. */
 import { command, el, loadFormulaIndex, mountRenderer } from './lib.js';
 
-export const mount = (root, catalog) =>
-  mountRenderer(root, catalog, async (context) => {
+export const mount = (root, attricat) =>
+  mountRenderer(root, attricat, async (context) => {
     if (!context.attribute_id) return null;
     const scope = {
       blueprint_id: context.blueprint_id,
@@ -12,8 +12,8 @@ export const mount = (root, catalog) =>
       attribute_id: context.attribute_id,
     };
     const [index, { settings }] = await Promise.all([
-      loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version),
-      command(catalog, 'get-attribute-settings', scope),
+      loadFormulaIndex(attricat, context.blueprint_id, context.blueprint_version),
+      command(attricat, 'get-attribute-settings', scope),
     ]);
     const formula = index?.formulas?.find((item) => item.target_attribute_id === context.attribute_id);
     if (!formula && settings.precision == null && !settings.unit) return null;
@@ -29,7 +29,7 @@ export const mount = (root, catalog) =>
       status.className = 'muted';
       status.textContent = 'Saving…';
       try {
-        await command(catalog, 'save-attribute-settings', {
+        await command(attricat, 'save-attribute-settings', {
           ...scope,
           settings: {
             precision: precision.value === '' ? null : Number(precision.value),

@@ -3,10 +3,10 @@
  * index the server component keeps in extension storage. */
 import { el, loadFormulaIndex, mountRenderer } from './lib.js';
 
-export const mount = (root, catalog) =>
-  mountRenderer(root, catalog, async (context) => {
+export const mount = (root, attricat) =>
+  mountRenderer(root, attricat, async (context) => {
     if (!context.attribute_id) return null;
-    const index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
+    const index = await loadFormulaIndex(attricat, context.blueprint_id, context.blueprint_version);
     const formulas = index?.formulas ?? [];
     const target = formulas.find((formula) => formula.target_attribute_id === context.attribute_id);
     const feeds = formulas.filter((formula) => formula.dependencies.includes(context.attribute_id));

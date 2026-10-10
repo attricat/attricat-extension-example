@@ -8,7 +8,7 @@ import { command, formatNumber, installStyles, shortId } from './lib.js';
 const FEATURES = [
   ['Event handler', 'record.updated.v1 recalculates formulas in the context that changed', 'server.event_handlers'],
   ['Commands', 'describe, preview, recalculate, attribute settings, activity', 'server.commands · client.commands'],
-  ['Interactive operation', 'recalculate a selection, write or report, CSV output, annotations', 'server.operations · selection · catalog-data · artifacts'],
+  ['Interactive operation', 'recalculate a selection, write or report, CSV output, annotations', 'server.operations · selection · attricat-data · artifacts'],
   ['Scoped configuration', 'per-attribute rounding and unit for each blueprint revision', 'scoped_configuration'],
   ['Extension storage', 'formula index and activity log shared by server and panels', 'storage.extension'],
   ['Event contract', 'publishes plugin.attricat-extension-example.formula_recalculated.v1', 'event_contracts · events.emit'],
@@ -27,7 +27,7 @@ const Overview = () => (
     <p>
       Computed numeric attributes declared in blueprint TOML, recalculated in the context where an
       input changes. Every part of this extension exists to show one piece of the{' '}
-      <code>catalog:host@1.0.0</code> extension surface.
+      <code>attricat:host@1.0.0</code> extension surface.
     </p>
     <table>
       <thead>
@@ -55,9 +55,9 @@ const useLoad = (load) => {
   return [state, reload];
 };
 
-const Activity = ({ catalog }) => {
+const Activity = ({ attricat }) => {
   const [{ data, error, loading }, reload] = useLoad(
-    useCallback(() => command(catalog, 'recent-activity', {}), [catalog]),
+    useCallback(() => command(attricat, 'recent-activity', {}), [attricat]),
   );
   if (error) return <p class="error">{error}</p>;
   if (!data) return <p class="muted">Loading…</p>;
@@ -84,7 +84,7 @@ const Activity = ({ catalog }) => {
                 <td>{entry.source}</td>
                 <td>
                   {entry.record_id ? (
-                    <button type="button" class="secondary" onClick={() => catalog.navigate({ record_id: entry.record_id })}>
+                    <button type="button" class="secondary" onClick={() => attricat.navigate({ record_id: entry.record_id })}>
                       {shortId(entry.record_id)}
                     </button>
                   ) : '—'}
@@ -105,21 +105,21 @@ const Activity = ({ catalog }) => {
   );
 };
 
-const Runs = ({ catalog }) => {
+const Runs = ({ attricat }) => {
   const [{ data, error, loading }, reload] = useLoad(
     useCallback(async () => {
-      const listed = await catalog.operations.list();
+      const listed = await attricat.operations.list();
       return Array.isArray(listed) ? listed : listed?.runs ?? listed?.items ?? [];
-    }, [catalog]),
+    }, [attricat]),
   );
   const download = async (runId) => {
     try {
-      const run = await catalog.operations.get({ run_id: runId });
+      const run = await attricat.operations.get({ run_id: runId });
       const artifact = run.artifacts?.[0];
-      if (!artifact) return catalog.notify({ message: 'This run has no downloadable output.' });
-      await catalog.operations.download({ run_id: runId, artifact_id: artifact.id ?? artifact.artifact_id });
+      if (!artifact) return attricat.notify({ message: 'This run has no downloadable output.' });
+      await attricat.operations.download({ run_id: runId, artifact_id: artifact.id ?? artifact.artifact_id });
     } catch (failure) {
-      await catalog.notify({ message: failure.message, severity: 'error' });
+      await attricat.notify({ message: failure.message, severity: 'error' });
     }
   };
   if (error) return <p class="error">{error}</p>;
@@ -185,7 +185,7 @@ const SCREENS = {
   syntax: ['Formula syntax', Syntax],
 };
 
-const App = ({ catalog }) => {
+const App = ({ attricat }) => {
   const [screen, setScreen] = useState('overview');
   const [title, Screen] = SCREENS[screen];
   return (
@@ -205,15 +205,15 @@ const App = ({ catalog }) => {
         ))}
       </nav>
       <section aria-label={title}>
-        <Screen catalog={catalog} />
+        <Screen attricat={attricat} />
       </section>
     </main>
   );
 };
 
-export const mount = (root, catalog) => {
-  const removeStyles = installStyles(root, catalog);
-  render(<App catalog={catalog} />, root);
+export const mount = (root, attricat) => {
+  const removeStyles = installStyles(root, attricat);
+  render(<App attricat={attricat} />, root);
   return () => {
     render(null, root);
     removeStyles();

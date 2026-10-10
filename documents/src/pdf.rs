@@ -84,7 +84,7 @@ fn trailer(offsets: &[(u32, u64)], xref_at: u64) -> String {
 fn catalog_objects(pages: &[u32]) -> (String, String) {
     let kids: Vec<String> = pages.iter().map(|page| format!("{page} 0 R")).collect();
     (
-        object(1, "<< /Type /Catalog /Pages 2 0 R >>"),
+        object(1, "<< /Type /Attricat /Pages 2 0 R >>"),
         object(
             2,
             &format!(

@@ -274,7 +274,7 @@ pub fn evaluate(
     })
 }
 
-/// Catalog stores decimals, so a value read back can differ from the f64 we
+/// Attricat stores decimals, so a value read back can differ from the f64 we
 /// computed in the last bits (99.99 * 1.23 = 122.98769999999999 is stored as
 /// 122.9877). Treat values within a relative 1e-9 as equal so unchanged
 /// targets are not rewritten or reported as stale.

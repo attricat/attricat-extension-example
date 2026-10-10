@@ -20,12 +20,12 @@ test:
 check: fmt test check-documents
 
 # Every client contribution is bundled into one self-contained ES module per
-# manifest artifact (scripts/build-client.mjs). Catalog imports each into its
-# own sandboxed, opaque-origin iframe and calls mount(root, catalog).
+# manifest artifact (scripts/build-client.mjs). Attricat imports each into its
+# own sandboxed, opaque-origin iframe and calls mount(root, attricat).
 build-client:
   pnpm run build
 
-# Build a component that imports only the catalog:host@1.0.0 ABI.
+# Build a component that imports only the attricat:host@1.0.0 ABI.
 # wasm32-wasip2 would import ambient WASI interfaces, which Attricat never links.
 build-server:
   #!/usr/bin/env bash
@@ -35,8 +35,8 @@ build-server:
   cargo build --release --target wasm32-unknown-unknown -p attricat-extension-example-server
   mkdir -p {{dist_dir}}
   wasm-tools component new target/wasm32-unknown-unknown/release/attricat_extension_example_server.wasm -o {{dist_dir}}/server.wasm
-  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'catalog:host/.*@1\.0\.0'; then
-    echo "server.wasm imports something other than catalog:host@1.0.0" >&2; exit 1
+  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'attricat:host/.*@1\.0\.0'; then
+    echo "server.wasm imports something other than attricat:host@1.0.0" >&2; exit 1
   fi
 
 # Every artifact path declared by the manifest must exist and be non-empty.
@@ -45,7 +45,7 @@ verify-artifacts:
 
 build: check build-client build-server verify-artifacts
 
-# Produce the archive accepted by Catalog's installer: the manifest at the root
+# Produce the archive accepted by Attricat's installer: the manifest at the root
 # plus exactly the files it declares (and the README and icon).
 pack: build && pack-documents
   #!/usr/bin/env bash
@@ -61,14 +61,14 @@ pack: build && pack-documents
   echo "Created {{archive}}"
 
 # Browser + API verification against a running dev server (see e2e/verify.mjs).
-# Requires CATALOG_WEB_URL and CATALOG_SESSION_FILE.
+# Requires ATTRICAT_WEB_URL and ATTRICAT_SESSION_FILE.
 e2e:
   node e2e/verify.mjs
 
 clean:
   rm -rf {{dist_dir}} target
 
-# The reference document extension is an operation-only catalog:host@1.0.0
+# The reference document extension is an operation-only attricat:host@1.0.0
 # component (selection reads, annotations, streamed artifacts).
 documents_archive := "dist/reference-documents.tar.zst"
 documents_stage := "dist/documents-package"

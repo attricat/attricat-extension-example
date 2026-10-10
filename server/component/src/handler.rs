@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::activity::{self, Activity, Entry};
-use crate::catalog::host::api::Event;
-use crate::exports::catalog::host::handler::{CommandRequest, CommandResponse};
+use crate::attricat::host::api::Event;
+use crate::exports::attricat::host::handler::{CommandRequest, CommandResponse};
 use crate::formulas::{self, AttributeSettings, Evaluation, FormulaConfig};
 use crate::host::{self, decode, encode};
 

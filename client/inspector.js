@@ -1,6 +1,6 @@
 /* record_preview_panel: every formula of the record's revision evaluated in the
  * selected context, an expression preview, and recalculation. Demonstrates
- * `catalog.command`, `catalog.refresh`, `catalog.notify` and context events. */
+ * `attricat.command`, `attricat.refresh`, `attricat.notify` and context events. */
 import { command, el, formatNumber, mountRenderer } from './lib.js';
 
 const formulaCard = (formula) => {
@@ -33,7 +33,7 @@ const formulaCard = (formula) => {
   );
 };
 
-const previewForm = (catalog, context) => {
+const previewForm = (attricat, context) => {
   const input = el('input', { 'aria-label': 'Expression to preview', placeholder: 'price_net * 2', size: 24 });
   const output = el('span', { class: 'muted', 'aria-live': 'polite' });
   // Frames are sandboxed without `allow-forms`: no form submission, so the
@@ -42,7 +42,7 @@ const previewForm = (catalog, context) => {
     output.className = 'muted';
     output.textContent = 'Evaluating…';
     try {
-      const preview = await command(catalog, 'preview-formula', {
+      const preview = await command(attricat, 'preview-formula', {
         record_id: context.record_id,
         context_id: context.context_id,
         expression: input.value,
@@ -59,10 +59,10 @@ const previewForm = (catalog, context) => {
   return el('div', { class: 'row' }, input, el('button', { type: 'button', class: 'secondary', onclick: run }, 'Preview'), output);
 };
 
-export const mount = (root, catalog) => {
-  const view = mountRenderer(root, catalog, async (context, isCurrent) => {
+export const mount = (root, attricat) => {
+  const view = mountRenderer(root, attricat, async (context, isCurrent) => {
     if (!context.record_id) return el('p', { class: 'muted' }, 'No record is selected.');
-    const described = await command(catalog, 'describe-formulas', {
+    const described = await command(attricat, 'describe-formulas', {
       record_id: context.record_id,
       context_id: context.context_id ?? null,
     });
@@ -82,20 +82,20 @@ export const mount = (root, catalog) => {
       button.addEventListener('click', async () => {
         button.disabled = true;
         try {
-          const { results } = await command(catalog, 'recalculate-formulas', {
+          const { results } = await command(attricat, 'recalculate-formulas', {
             record_id: context.record_id,
             context_id: context.context_id,
           });
           const written = results.filter((result) => result.written).length;
-          await catalog.notify({ message: written ? `Updated ${written} computed value(s).` : 'Computed values are up to date.' });
-          await catalog.refresh({ target: 'current_record' });
+          await attricat.notify({ message: written ? `Updated ${written} computed value(s).` : 'Computed values are up to date.' });
+          await attricat.refresh({ target: 'current_record' });
           await view.rerender();
         } catch (error) {
-          await catalog.notify({ message: error.message || 'Recalculation failed.', severity: 'error' });
+          await attricat.notify({ message: error.message || 'Recalculation failed.', severity: 'error' });
           button.disabled = false;
         }
       });
-      section.append(previewForm(catalog, context), button);
+      section.append(previewForm(attricat, context), button);
     }
     return section;
   });

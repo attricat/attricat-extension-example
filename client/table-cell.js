@@ -4,10 +4,10 @@
  *                props = { precision = 2, unit = "EUR" } } */
 import { formatNumber, installStyles } from './lib.js';
 
-export const mount = (root, catalog) => {
-  const removeStyles = installStyles(root, catalog);
+export const mount = (root, attricat) => {
+  const removeStyles = installStyles(root, attricat);
   const render = () => {
-    const context = catalog.context ?? {};
+    const context = attricat.context ?? {};
     const props = context.column?.renderer?.props ?? {};
     root.textContent = formatNumber(context.primary_value, {
       precision: Number.isInteger(props.precision) ? props.precision : undefined,
@@ -15,10 +15,10 @@ export const mount = (root, catalog) => {
     });
     root.style.cssText = 'font-variant-numeric:tabular-nums;text-align:right';
   };
-  root.addEventListener('catalog:context-changed.v1', render);
+  root.addEventListener('attricat:context-changed.v1', render);
   render();
   return () => {
-    root.removeEventListener('catalog:context-changed.v1', render);
+    root.removeEventListener('attricat:context-changed.v1', render);
     removeStyles();
   };
 };

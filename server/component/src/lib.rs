@@ -1,7 +1,7 @@
 //! Attricat example extension: context-aware computed numeric attributes.
 //!
-//! One component on the `catalog:host@1.0.0` ABI exports both
-//! interfaces of the `catalog-extension` world:
+//! One component on the `attricat:host@1.0.0` ABI exports both
+//! interfaces of the `attricat-extension` world:
 //!
 //! - `handler`: the `record.updated.v1` event handler and client commands
 //!   ([`handler`]).
@@ -13,7 +13,7 @@
 
 wit_bindgen::generate!({
     path: "wit",
-    world: "catalog-extension",
+    world: "attricat-extension",
 });
 
 mod activity;
@@ -22,15 +22,15 @@ mod handler;
 mod host;
 mod operation;
 
-use catalog::host::api::Event;
-use exports::catalog::host::{
+use attricat::host::api::Event;
+use exports::attricat::host::{
     handler::{CommandRequest, CommandResponse},
     operations::{BatchResult, OperationRequest},
 };
 
 struct Extension;
 
-impl exports::catalog::host::handler::Guest for Extension {
+impl exports::attricat::host::handler::Guest for Extension {
     fn handle_event(event: Event) -> Result<(), String> {
         handler::handle_event(event)
     }
@@ -40,7 +40,7 @@ impl exports::catalog::host::handler::Guest for Extension {
     }
 }
 
-impl exports::catalog::host::operations::Guest for Extension {
+impl exports::attricat::host::operations::Guest for Extension {
     fn prepare(request: OperationRequest) -> Result<String, String> {
         operation::prepare(request).map_err(operation::diagnostic)
     }

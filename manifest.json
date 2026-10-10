@@ -2,18 +2,18 @@
   "manifest_version": 1,
   "name": "Attricat Example Extension",
   "version": "0.2.0",
-  "description": "Context-aware computed numeric attributes: a tour of the catalog:host 1.0 extension surface.",
+  "description": "Context-aware computed numeric attributes: a tour of the attricat:host 1.0 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
   },
-  "catalog": {
+  "attricat": {
     "id": "attricat-extension-example",
     "host_api": ">=1.0.0, <2.0.0"
   },
   "permissions": [
-    "catalog.read",
-    "catalog.write",
-    "catalog.annotations.write",
+    "attricat.read",
+    "attricat.write",
+    "attricat.annotations.write",
     "artifacts.write",
     "events.subscribe",
     "events.emit",

@@ -1,5 +1,5 @@
 // Bundles every client contribution into one self-contained ES module per
-// manifest artifact. Catalog imports each artifact into its own opaque-origin
+// manifest artifact. Attricat imports each artifact into its own opaque-origin
 // iframe with network access denied, so nothing may be imported at runtime.
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';

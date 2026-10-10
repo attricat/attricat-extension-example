@@ -5,11 +5,11 @@ const palette = {
   dark: { fg: '#e6edf3', border: '#6e7681', bg: '#161b22', hover: '#21262d' },
 };
 
-export const mount = (root, catalog) => {
+export const mount = (root, attricat) => {
   const button = document.createElement('button');
   button.type = 'button';
   const label = () => {
-    const count = catalog.context?.record_ids?.length ?? 0;
+    const count = attricat.context?.record_ids?.length ?? 0;
     button.textContent =
       count > 1 ? `Generate documents (${count})` : 'Generate document';
     button.setAttribute(
@@ -20,7 +20,7 @@ export const mount = (root, catalog) => {
     );
   };
   const theme = () => {
-    const colors = palette[catalog.theme?.color_mode] ?? palette.light;
+    const colors = palette[attricat.theme?.color_mode] ?? palette.light;
     Object.assign(button.style, {
       font: '500 14px/20px system-ui, sans-serif',
       padding: '6px 12px',
@@ -34,21 +34,21 @@ export const mount = (root, catalog) => {
   button.addEventListener('click', async () => {
     button.disabled = true;
     try {
-      await catalog.dialog.open();
+      await attricat.dialog.open();
     } catch {
       button.title = 'The document dialog could not be opened.';
     } finally {
       button.disabled = false;
     }
   });
-  root.addEventListener('catalog:context-changed.v1', label);
-  root.addEventListener('catalog:theme-changed.v1', theme);
+  root.addEventListener('attricat:context-changed.v1', label);
+  root.addEventListener('attricat:theme-changed.v1', theme);
   label();
   theme();
   root.replaceChildren(button);
   return () => {
-    root.removeEventListener('catalog:context-changed.v1', label);
-    root.removeEventListener('catalog:theme-changed.v1', theme);
+    root.removeEventListener('attricat:context-changed.v1', label);
+    root.removeEventListener('attricat:theme-changed.v1', theme);
     root.replaceChildren();
   };
 };

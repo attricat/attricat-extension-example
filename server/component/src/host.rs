@@ -1,10 +1,10 @@
-//! Thin wrappers over the `catalog:host@1.0.0` imports. Every call is checked
+//! Thin wrappers over the `attricat:host@1.0.0` imports. Every call is checked
 //! by the host against this release's granted capabilities.
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
-use crate::catalog::host::api::{
+use crate::attricat::host::api::{
     self, ConfigurationScope, ConfigurationScopeKind, ReadRequest, RecordReference, ResolvedRead,
     ScalarWrite, ScopedConfigurationUpdate, WriteRequest,
 };
@@ -21,12 +21,12 @@ pub fn encode(value: &impl Serialize) -> Result<String, String> {
 }
 
 #[derive(Deserialize)]
-pub struct CatalogRecord {
+pub struct AttricatRecord {
     pub id: String,
 }
 
 pub struct ReadRecord {
-    pub record: CatalogRecord,
+    pub record: AttricatRecord,
     pub blueprint: BlueprintWithAttributes,
 }
 

@@ -2,7 +2,7 @@
 //! started from Explorer row/bulk actions through the host action dialog.
 //!
 //! Inside a run the component reads only its frozen selection (values already
-//! resolved in the run's context) and writes only through `catalog-data.batch`;
+//! resolved in the run's context) and writes only through `attricat-data.batch`;
 //! the host rejects direct `api` catalog access. Formulas come from the stored
 //! per-revision index because a run cannot read the blueprint.
 
@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::activity::{self, Entry};
-use crate::catalog::host::{artifacts, catalog_data, selection};
-use crate::exports::catalog::host::operations::{BatchResult, OperationRequest};
+use crate::attricat::host::{artifacts, attricat_data, selection};
+use crate::exports::attricat::host::operations::{BatchResult, OperationRequest};
 use crate::formulas::{self, AttributeSettings, FormulaIndex};
 use crate::host::{self, decode, encode};
 
@@ -223,7 +223,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             "intents": intents,
         }});
         let outcomes: Vec<Outcome> =
-            decode(&catalog_data::batch(&batch.to_string())?, "batch outcomes")?;
+            decode(&attricat_data::batch(&batch.to_string())?, "batch outcomes")?;
         let mut failed_records = BTreeMap::new();
         for outcome in &outcomes {
             let record_id = outcome

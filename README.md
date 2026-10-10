@@ -3,7 +3,7 @@
 `attricat-extension-example` is the reference Attricat extension. It implements
 one feature end to end, **context-aware computed numeric attributes**, and
 uses it to show nearly every part of the extension system in a single release
-on the **`catalog:host@1.0.0`** ABI.
+on the **`attricat:host@1.0.0`** ABI.
 
 ```toml
 [extensions.attricat-extension-example.formulas]
@@ -20,16 +20,16 @@ recalculated and written **in that same context**.
 | One component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
 | `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
 | `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
-| Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `catalog-data.batch`, annotates records, streams a CSV report | `operation.rs` |
+| Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `attricat-data.batch`, annotates records, streams a CSV report | `operation.rs` |
 | `scoped_configuration` | Per-attribute rounding and unit for each blueprint revision | `host.rs`, `attribute-settings.js` |
 | `storage.extension` | A per-revision formula index and an activity log, written by the server and read by clients | `activity.rs`, `client/lib.js` |
 | `event_contracts` + `events.emit` | Publishes `plugin.attricat-extension-example.formula_recalculated.v1` | `handler.rs` |
-| `catalog.annotations.write` | Tags checked records `attricat-extension-example:formulas-checked` | `operation.rs` |
+| `attricat.annotations.write` | Tags checked records `attricat-extension-example:formulas-checked` | `operation.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
-| `record_action` (v1) | One-click recalculation followed by `catalog.refresh` | `client/record-action.js` |
+| `record_action` (v1) | One-click recalculation followed by `attricat.refresh` | `client/record-action.js` |
 | `explorer_row_action` / `explorer_bulk_action` (v2) | Selection-aware actions that open the host dialog | `client/selection-action.js` |
 | `action_dialog` | Starts and follows the run, downloads the report | `client/dialog.js` |
 | `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
@@ -41,7 +41,7 @@ recalculated and written **in that same context**.
 
 The release does not use webhooks (declared by the host but not delivered yet),
 outbound HTTPS (`network.request` needs a public endpoint), secrets, connector
-jobs, or the client capabilities that have no `catalog.*` method yet.
+jobs, or the client capabilities that have no `attricat.*` method yet.
 
 ## How it works
 
@@ -54,23 +54,23 @@ parentheses (`server/formula-core`). The server rejects unknown, non-numeric,
 self-referencing and cyclic formulas.
 
 Values are always read already resolved by the host, so context fallback keeps
-Catalog's semantics; the extension never resolves contexts itself. A target is
+Attricat's semantics; the extension never resolves contexts itself. A target is
 written only when its direct value in that context differs from the result.
-Comparison uses a relative tolerance, because Catalog stores decimals
+Comparison uses a relative tolerance, because Attricat stores decimals
 (`99.99 * 1.23` computes as `122.98769999999999` and reads back as `122.9877`).
 Writes carry the extension's provenance (`extension:attricat-extension-example`).
 
 ### One component, two exports
 
-`server.wasm` targets the combined `catalog-extension` world of
-`catalog:host@1.0.0` (`server/component/wit`):
+`server.wasm` targets the combined `attricat-extension` world of
+`attricat:host@1.0.0` (`server/component/wit`):
 
 - **`handler`**: the event handler and client commands use the typed `api`
   imports (`read`, `write`, scoped configuration) and `call` for storage,
   events and logging.
 - **`operations`**: the interactive run reads only its frozen selection
   (values already resolved in the run's context) and writes only through
-  `catalog-data.batch`. Direct `api` catalog access is refused inside a run.
+  `attricat-data.batch`. Direct `api` catalog access is refused inside a run.
 
 Formula problems (an invalid expression, a non-numeric value) are recorded in
 the activity log and the event delivery succeeds; retrying cannot fix them and
@@ -92,17 +92,17 @@ records is updated or inspected.
 ### Client contributions
 
 Every artifact is a self-contained ES module bundled by
-`scripts/build-client.mjs`, one per manifest artifact. Catalog mounts each in
+`scripts/build-client.mjs`, one per manifest artifact. Attricat mounts each in
 its own `sandbox="allow-scripts"` iframe with an opaque origin and no network.
 That has practical consequences that the code follows:
 
 - **Forms never submit.** There is no `allow-forms`, so the `submit` event
   never fires; use button and key handlers.
-- **Renders are context-driven.** Re-render on `catalog:context-changed.v1`
+- **Renders are context-driven.** Re-render on `attricat:context-changed.v1`
   only when the context actually changed, so a pending save or preview isn't
   discarded.
-- **Theme follows the host.** Read `catalog.theme` and restyle on
-  `catalog:theme-changed.v1`; frames stay mounted.
+- **Theme follows the host.** Read `attricat.theme` and restyle on
+  `attricat:theme-changed.v1`; frames stay mounted.
 
 ## Build, test, and package
 
@@ -116,7 +116,7 @@ just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
 `just pack` builds the client bundles and the component, fails if
-`server.wasm` imports anything other than `catalog:host@1.0.0`, and packages
+`server.wasm` imports anything other than `attricat:host@1.0.0`, and packages
 exactly the files the manifest declares. The release profile optimizes for
 size because the host compiles the component on first use.
 
@@ -134,7 +134,7 @@ in [AGENTS.md](AGENTS.md):
 
    ```sh
    acli --session-file .acli-session auth login default.local --email "$EMAIL" --password-stdin
-   CATALOG_WEB_URL=http://127.0.0.1:<web-port> CATALOG_SESSION_FILE=.acli-session just e2e
+   ATTRICAT_WEB_URL=http://127.0.0.1:<web-port> ATTRICAT_SESSION_FILE=.acli-session just e2e
    ```
 
 `e2e/verify.mjs` creates its own context, blueprint revision (with the formula
@@ -145,7 +145,7 @@ feature and every UI contribution listed above in Chromium.
 
 `attricat.reference-documents` is the reference workflow for selection-aware
 extension actions and interactive operations. It is an operation-only
-`catalog:host@1.0.0` component (the `operation-extension` world, built from the
+`attricat:host@1.0.0` component (the `operation-extension` world, built from the
 same vendored WIT as the main extension). It adds a
 **Generate document(s)** action to the record preview, the Explorer row menu
 and the Explorer selection toolbar. Each opens the host-managed dialog, which

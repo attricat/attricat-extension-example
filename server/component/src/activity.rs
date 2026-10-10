@@ -1,7 +1,7 @@
 //! Extension-owned state in `storage.extension`: a bounded activity log with
 //! counters, and the per-revision formula index. Server code writes both;
 //! client contributions (including read-only panels) read them through
-//! `catalog.storage`.
+//! `attricat.storage`.
 
 use serde::{Deserialize, Serialize};
 

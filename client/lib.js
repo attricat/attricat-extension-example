@@ -1,30 +1,30 @@
 /* Shared helpers bundled into every contribution. Each artifact runs alone in
- * its own sandboxed, opaque-origin frame and talks to Catalog only through the
- * mediated `catalog` object passed to `mount(root, catalog)`. */
+ * its own sandboxed, opaque-origin frame and talks to Attricat only through the
+ * mediated `attricat` object passed to `mount(root, attricat)`. */
 
 export const EXTENSION_ID = 'attricat-extension-example';
 
 /* Invokes a declared server command (`client.commands`). */
-export const command = async (catalog, commandId, payload) => {
-  if (!catalog?.command) throw new Error('Server commands are not available here.');
-  const response = await catalog.command({ command_id: commandId, payload });
+export const command = async (attricat, commandId, payload) => {
+  if (!attricat?.command) throw new Error('Server commands are not available here.');
+  const response = await attricat.command({ command_id: commandId, payload });
   if (typeof response?.payload === 'string') return JSON.parse(response.payload);
   return response?.payload ?? response;
 };
 
 /* Reads extension storage (`storage.extension`). Read-only panels use it to
  * show state the server component precomputed. */
-export const storageGet = async (catalog, key) => {
-  if (!catalog?.storage) return null;
-  const entry = await catalog.storage.get({ key });
+export const storageGet = async (attricat, key) => {
+  if (!attricat?.storage) return null;
+  const entry = await attricat.storage.get({ key });
   return entry && typeof entry === 'object' && 'value' in entry ? entry.value : null;
 };
 
 export const formulaIndexKey = (blueprintId, blueprintVersion) =>
   `formulas:${blueprintId}:${blueprintVersion}`;
 
-export const loadFormulaIndex = (catalog, blueprintId, blueprintVersion) =>
-  storageGet(catalog, formulaIndexKey(blueprintId, blueprintVersion));
+export const loadFormulaIndex = (attricat, blueprintId, blueprintVersion) =>
+  storageGet(attricat, formulaIndexKey(blueprintId, blueprintVersion));
 
 export const formatNumber = (value, settings = {}) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
@@ -38,7 +38,7 @@ export const formatNumber = (value, settings = {}) => {
 
 export const shortId = (id) => (typeof id === 'string' ? id.slice(0, 8) : '—');
 
-/* Light/dark tokens follow `catalog.theme`, which the host updates in place. */
+/* Light/dark tokens follow `attricat.theme`, which the host updates in place. */
 const css = `
 :root { --fg:#1f2937; --muted:#6b7280; --bg:transparent; --card:#ffffff; --border:#d1d5db;
   --accent:#1565c0; --accent-fg:#ffffff; --danger:#b91c1c; --ok:#047857; --code:#f3f4f6; }
@@ -66,17 +66,17 @@ th, td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border)
   color:var(--accent); border:1px solid var(--accent); }
 `;
 
-export const installStyles = (root, catalog) => {
+export const installStyles = (root, attricat) => {
   const style = document.createElement('style');
   style.textContent = css;
   document.head.append(style);
   const apply = () => {
-    document.documentElement.dataset.mode = catalog.theme?.color_mode ?? 'light';
+    document.documentElement.dataset.mode = attricat.theme?.color_mode ?? 'light';
   };
-  root.addEventListener('catalog:theme-changed.v1', apply);
+  root.addEventListener('attricat:theme-changed.v1', apply);
   apply();
   return () => {
-    root.removeEventListener('catalog:theme-changed.v1', apply);
+    root.removeEventListener('attricat:theme-changed.v1', apply);
     style.remove();
   };
 };
@@ -101,15 +101,15 @@ export const el = (tag, attributes = {}, ...children) => {
 
 /* Mounts a render function that reruns on every host context update and
  * ignores results from renders superseded by a newer context. */
-export const mountRenderer = (root, catalog, render) => {
-  const removeStyles = installStyles(root, catalog);
+export const mountRenderer = (root, attricat, render) => {
+  const removeStyles = installStyles(root, attricat);
   let generation = 0;
   let disposed = false;
   const run = async () => {
     const current = ++generation;
     const isCurrent = () => !disposed && current === generation;
     try {
-      const content = await render(catalog.context ?? {}, isCurrent);
+      const content = await render(attricat.context ?? {}, isCurrent);
       if (isCurrent()) root.replaceChildren(...[content].flat().filter(Boolean));
     } catch (error) {
       if (isCurrent()) root.replaceChildren(el('p', { class: 'error' }, error?.message || String(error)));
@@ -117,20 +117,20 @@ export const mountRenderer = (root, catalog, render) => {
   };
   // The host may re-send an unchanged context; re-rendering then would discard
   // in-progress UI state such as a pending save message.
-  let lastContext = JSON.stringify(catalog.context ?? {});
+  let lastContext = JSON.stringify(attricat.context ?? {});
   const onContext = () => {
-    const next = JSON.stringify(catalog.context ?? {});
+    const next = JSON.stringify(attricat.context ?? {});
     if (next === lastContext) return;
     lastContext = next;
     void run();
   };
-  root.addEventListener('catalog:context-changed.v1', onContext);
+  root.addEventListener('attricat:context-changed.v1', onContext);
   void run();
   return {
     rerender: run,
     cleanup: () => {
       disposed = true;
-      root.removeEventListener('catalog:context-changed.v1', onContext);
+      root.removeEventListener('attricat:context-changed.v1', onContext);
       removeStyles();
       root.replaceChildren();
     },

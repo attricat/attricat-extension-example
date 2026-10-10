@@ -8,7 +8,7 @@
 //
 // Then run:
 //
-//   CATALOG_WEB_URL=http://127.0.0.1:5173 CATALOG_SESSION_FILE=.acli-session just e2e
+//   ATTRICAT_WEB_URL=http://127.0.0.1:5173 ATTRICAT_SESSION_FILE=.acli-session just e2e
 //
 // The script creates its own uniquely named context, blueprint revision and
 // records through the API, then exercises every server feature and UI
@@ -18,10 +18,10 @@ import { readFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const EXTENSION = 'attricat-extension-example';
-const WEB = (process.env.CATALOG_WEB_URL ?? '').replace(/\/$/, '');
-const SESSION_FILE = process.env.CATALOG_SESSION_FILE;
+const WEB = (process.env.ATTRICAT_WEB_URL ?? '').replace(/\/$/, '');
+const SESSION_FILE = process.env.ATTRICAT_SESSION_FILE;
 if (!WEB || !SESSION_FILE) {
-  console.error('Set CATALOG_WEB_URL and CATALOG_SESSION_FILE (an acli --session-file).');
+  console.error('Set ATTRICAT_WEB_URL and ATTRICAT_SESSION_FILE (an acli --session-file).');
   process.exit(2);
 }
 const session = JSON.parse(readFileSync(SESSION_FILE, 'utf8'));
@@ -38,8 +38,8 @@ const api = async (method, path, body) => {
     method,
     headers: {
       'content-type': 'application/json',
-      cookie: `catalog_session=${session.session}; catalog_csrf=${session.csrf}`,
-      'x-catalog-csrf': session.csrf,
+      cookie: `attricat_session=${session.session}; attricat_csrf=${session.csrf}`,
+      'x-attricat-csrf': session.csrf,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -164,8 +164,8 @@ const page = await (async () => {
   const browserContext = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
   const { hostname } = new URL(WEB);
   await browserContext.addCookies([
-    { name: 'catalog_session', value: session.session, domain: hostname, path: '/' },
-    { name: 'catalog_csrf', value: session.csrf, domain: hostname, path: '/' },
+    { name: 'attricat_session', value: session.session, domain: hostname, path: '/' },
+    { name: 'attricat_csrf', value: session.csrf, domain: hostname, path: '/' },
   ]);
   return browserContext.newPage();
 })();

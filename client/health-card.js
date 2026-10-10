@@ -2,9 +2,9 @@
  * the server component in extension storage. */
 import { el, mountRenderer, storageGet } from './lib.js';
 
-export const mount = (root, catalog) =>
-  mountRenderer(root, catalog, async () => {
-    const activity = (await storageGet(catalog, 'activity')) ?? { stats: {}, entries: [] };
+export const mount = (root, attricat) =>
+  mountRenderer(root, attricat, async () => {
+    const activity = (await storageGet(attricat, 'activity')) ?? { stats: {}, entries: [] };
     const stats = activity.stats ?? {};
     const lastError = activity.entries?.find((entry) => entry.error);
     return el('div', { class: 'stack' },

@@ -1,5 +1,5 @@
 //! Reference document generator for Attricat's interactive selection
-//! operations (`catalog:host@1.0.0`, `operation-extension` world).
+//! operations (`attricat:host@1.0.0`, `operation-extension` world).
 //!
 //! Each `process-batch` performs one small step and returns a checkpoint that
 //! fully determines the next step. A replay with the same batch key therefore
@@ -12,8 +12,8 @@ wit_bindgen::generate!({ path: "../server/component/wit", world: "operation-exte
 mod pdf;
 mod zip;
 
-use catalog::host::{artifacts, catalog_data, selection};
-use exports::catalog::host::operations::{BatchResult, Guest, OperationRequest};
+use attricat::host::{artifacts, attricat_data, selection};
+use exports::attricat::host::operations::{BatchResult, Guest, OperationRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -246,7 +246,7 @@ fn annotate(
         "dry_run": false,
         "intents": intents,
     }});
-    let outcomes = catalog_data::batch(&batch.to_string())
+    let outcomes = attricat_data::batch(&batch.to_string())
         .and_then(|response| parse(&response, "annotation outcome"));
     for (offset, index) in indexes.iter().enumerate() {
         let result = &mut results[*index];
