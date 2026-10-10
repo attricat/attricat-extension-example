@@ -10,7 +10,7 @@ export const mount = (root, catalog) => {
   const removeStyles = installStyles(root, catalog);
   let disposed = false;
   const context = catalog.context ?? {};
-  const ids = context.entity_ids ?? [];
+  const ids = context.record_ids ?? [];
   const close = () => void catalog.dialog.close();
   const onKey = (event) => event.key === 'Escape' && close();
   document.addEventListener('keydown', onKey);
@@ -84,7 +84,7 @@ export const mount = (root, catalog) => {
     });
     const controls = el('div', { class: 'row' }, mode, start, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Cancel'));
     body.replaceChildren(
-      el('p', {}, `${ids.length} selected ${ids.length === 1 ? 'entity' : 'entities'} · context ${context.context_id ? context.context_id.slice(0, 8) : 'default'}`),
+      el('p', {}, `${ids.length} selected ${ids.length === 1 ? 'record' : 'records'} · context ${context.context_id ? context.context_id.slice(0, 8) : 'default'}`),
       el('ul', {}, formulas.map((formula) => el('li', {}, el('code', {}, `${formula.target_code} = ${formula.expression}`)))),
       controls,
       status,
@@ -95,7 +95,7 @@ export const mount = (root, catalog) => {
     try {
       // The run reads formulas from the stored index; make sure it exists.
       let index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
-      if (!index && ids[0]) index = await command(catalog, 'describe-formulas', { entity_id: ids[0], context_id: null });
+      if (!index && ids[0]) index = await command(catalog, 'describe-formulas', { record_id: ids[0], context_id: null });
       if (!disposed) render(index);
     } catch (error) {
       body.replaceChildren(el('p', { class: 'error' }, error.message), el('button', { type: 'button', onclick: close }, 'Close'));

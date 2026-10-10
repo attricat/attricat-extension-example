@@ -1,4 +1,4 @@
-/* entity_preview_panel: every formula of the entity's revision evaluated in the
+/* record_preview_panel: every formula of the record's revision evaluated in the
  * selected context, an expression preview, and recalculation. Demonstrates
  * `catalog.command`, `catalog.refresh`, `catalog.notify` and context events. */
 import { command, el, formatNumber, mountRenderer } from './lib.js';
@@ -43,7 +43,7 @@ const previewForm = (catalog, context) => {
     output.textContent = 'Evaluating…';
     try {
       const preview = await command(catalog, 'preview-formula', {
-        entity_id: context.entity_id,
+        record_id: context.record_id,
         context_id: context.context_id,
         expression: input.value,
       });
@@ -61,9 +61,9 @@ const previewForm = (catalog, context) => {
 
 export const mount = (root, catalog) => {
   const view = mountRenderer(root, catalog, async (context, isCurrent) => {
-    if (!context.entity_id) return el('p', { class: 'muted' }, 'No entity is selected.');
+    if (!context.record_id) return el('p', { class: 'muted' }, 'No record is selected.');
     const described = await command(catalog, 'describe-formulas', {
-      entity_id: context.entity_id,
+      record_id: context.record_id,
       context_id: context.context_id ?? null,
     });
     if (!isCurrent()) return null;
@@ -83,12 +83,12 @@ export const mount = (root, catalog) => {
         button.disabled = true;
         try {
           const { results } = await command(catalog, 'recalculate-formulas', {
-            entity_id: context.entity_id,
+            record_id: context.record_id,
             context_id: context.context_id,
           });
           const written = results.filter((result) => result.written).length;
           await catalog.notify({ message: written ? `Updated ${written} computed value(s).` : 'Computed values are up to date.' });
-          await catalog.refresh({ target: 'current_entity' });
+          await catalog.refresh({ target: 'current_record' });
           await view.rerender();
         } catch (error) {
           await catalog.notify({ message: error.message || 'Recalculation failed.', severity: 'error' });

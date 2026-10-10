@@ -1,4 +1,4 @@
-//! Minimal PDF 1.4 writer: Helvetica with WinAnsi text, one page per entity.
+//! Minimal PDF 1.4 writer: Helvetica with WinAnsi text, one page per record.
 
 use serde::{Deserialize, Serialize};
 

@@ -6,20 +6,20 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import { command, formatNumber, installStyles, shortId } from './lib.js';
 
 const FEATURES = [
-  ['Event handler', 'entity.updated.v1 recalculates formulas in the context that changed', 'server.event_handlers'],
+  ['Event handler', 'record.updated.v1 recalculates formulas in the context that changed', 'server.event_handlers'],
   ['Commands', 'describe, preview, recalculate, attribute settings, activity', 'server.commands · client.commands'],
   ['Interactive operation', 'recalculate a selection, write or report, CSV output, annotations', 'server.operations · selection · catalog-data · artifacts'],
   ['Scoped configuration', 'per-attribute rounding and unit for each blueprint revision', 'scoped_configuration'],
   ['Extension storage', 'formula index and activity log shared by server and panels', 'storage.extension'],
   ['Event contract', 'publishes plugin.attricat-extension-example.formula_recalculated.v1', 'event_contracts · events.emit'],
   ['Route + navigation', 'this workbench', 'route · navigation'],
-  ['Entity preview panel', 'formulas evaluated in the selected context, preview, recalculate', 'entity_preview_panel'],
-  ['Attribute decoration', '⚡ Computed badge on formula targets', 'entity_attribute_decoration'],
-  ['Entity action', 'one-click recalculation with host refresh', 'entity_action · client.refresh'],
+  ['Record preview panel', 'formulas evaluated in the selected context, preview, recalculate', 'record_preview_panel'],
+  ['Attribute decoration', '⚡ Computed badge on formula targets', 'record_attribute_decoration'],
+  ['Record action', 'one-click recalculation with host refresh', 'record_action · client.refresh'],
   ['Selection actions + dialog', 'row and bulk actions open the host dialog that starts the run', 'explorer_row_action v2 · explorer_bulk_action v2 · action_dialog'],
   ['Table cell renderer', 'computed-number with precision/unit props', 'explorer_table_cell · cell_renderers'],
   ['Attribute settings', 'rounding/unit editor in the blueprint editor', 'blueprint_attribute_configuration'],
-  ['Read-only panels', 'attribute inputs, blueprint formulas, health counters', 'entity_attribute_panel · blueprint_detail_panel · data_health_card'],
+  ['Read-only panels', 'attribute inputs, blueprint formulas, health counters', 'record_attribute_panel · blueprint_detail_panel · data_health_card'],
 ];
 
 const Overview = () => (
@@ -72,20 +72,20 @@ const Activity = ({ catalog }) => {
         <button type="button" class="secondary" disabled={loading} onClick={reload}>Refresh</button>
       </div>
       {entries.length === 0 ? (
-        <p class="muted">No activity yet. Update a formula input on an entity.</p>
+        <p class="muted">No activity yet. Update a formula input on a record.</p>
       ) : (
         <table>
           <thead>
-            <tr><th>Source</th><th>Entity</th><th>Target</th><th>Context</th><th>Result</th></tr>
+            <tr><th>Source</th><th>Record</th><th>Target</th><th>Context</th><th>Result</th></tr>
           </thead>
           <tbody>
             {entries.map((entry, index) => (
               <tr key={index}>
                 <td>{entry.source}</td>
                 <td>
-                  {entry.entity_id ? (
-                    <button type="button" class="secondary" onClick={() => catalog.navigate({ entity_id: entry.entity_id })}>
-                      {shortId(entry.entity_id)}
+                  {entry.record_id ? (
+                    <button type="button" class="secondary" onClick={() => catalog.navigate({ record_id: entry.record_id })}>
+                      {shortId(entry.record_id)}
                     </button>
                   ) : '—'}
                 </td>
@@ -131,11 +131,11 @@ const Runs = ({ catalog }) => {
         <button type="button" class="secondary" disabled={loading} onClick={reload}>Refresh</button>
       </div>
       {data.length === 0 ? (
-        <p class="muted">No runs yet. Select entities in Explorer and choose “Recalculate formulas…”.</p>
+        <p class="muted">No runs yet. Select records in Explorer and choose “Recalculate formulas…”.</p>
       ) : (
         <table>
           <thead>
-            <tr><th>Run</th><th>Status</th><th>Entities</th><th>Outcome</th><th /></tr>
+            <tr><th>Run</th><th>Status</th><th>Records</th><th>Outcome</th><th /></tr>
           </thead>
           <tbody>
             {data.map((run) => {

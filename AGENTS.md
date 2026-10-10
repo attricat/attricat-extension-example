@@ -34,7 +34,7 @@ not sufficient to validate host integration.
    price_gross = "price_net * (1 + vat_rate)"
    ```
 
-   creates entities on that exact revision, updates dependencies in a
+   creates records on that exact revision, updates dependencies in a
    non-default context, and asserts that the target is written in that same
    context. Keep that assertion.
 

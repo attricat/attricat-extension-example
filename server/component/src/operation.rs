@@ -53,7 +53,7 @@ struct Described {
 
 #[derive(Deserialize)]
 struct Page {
-    entities: Vec<Value>,
+    records: Vec<Value>,
     context_id: Option<String>,
     next_cursor: Option<String>,
 }
@@ -65,10 +65,10 @@ struct Outcome {
     error: Option<String>,
 }
 
-/// One CSV row: entity, target, previous resolved value, computed value, status.
+/// One CSV row: record, target, previous resolved value, computed value, status.
 #[derive(Debug, PartialEq)]
 pub struct ReportRow {
-    pub entity_id: String,
+    pub record_id: String,
     pub target: String,
     pub previous: Option<f64>,
     pub result: Option<f64>,
@@ -79,12 +79,12 @@ pub fn csv(rows: &[ReportRow], header: bool) -> String {
     let number = |value: Option<f64>| value.map(|value| value.to_string()).unwrap_or_default();
     let mut out = String::new();
     if header {
-        out.push_str("entity_id,target,previous,result,status\n");
+        out.push_str("record_id,target,previous,result,status\n");
     }
     for row in rows {
         out.push_str(&format!(
             "{},{},{},{},{}\n",
-            row.entity_id,
+            row.record_id,
             row.target,
             number(row.previous),
             number(row.result),
@@ -118,7 +118,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
     let index = host::storage_get::<FormulaIndex>(&key)?
         .map(|(index, _)| index)
         .ok_or_else(|| {
-            "No formula index for this blueprint revision yet; open one of its entities first."
+            "No formula index for this blueprint revision yet; open one of its records first."
                 .to_owned()
         })?;
     if let Some(error) = index.error {
@@ -143,14 +143,14 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
     )?;
     let mut rows = Vec::new();
     let mut intents = Vec::new();
-    let mut entity_rows: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for member in &page.entities {
-        let entity_id = member["entity_id"].as_str().unwrap_or_default().to_owned();
+    let mut record_rows: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for member in &page.records {
+        let record_id = member["record_id"].as_str().unwrap_or_default().to_owned();
         checkpoint.completed += 1;
         if member["status"] != "available" {
             checkpoint.skipped += 1;
             rows.push(ReportRow {
-                entity_id,
+                record_id,
                 target: String::new(),
                 previous: None,
                 result: None,
@@ -185,8 +185,8 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             if write && status == "updated" {
                 intents.push(json!({
                     "kind": "update",
-                    "intent_key": format!("{entity_id}:{}", formula.target_code),
-                    "entity_id": entity_id,
+                    "intent_key": format!("{record_id}:{}", formula.target_code),
+                    "record_id": record_id,
                     "values": [{
                         "kind": "scalar",
                         "attribute_id": formula.target_attribute_id,
@@ -195,12 +195,12 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
                     }],
                 }));
             }
-            entity_rows
-                .entry(entity_id.clone())
+            record_rows
+                .entry(record_id.clone())
                 .or_default()
                 .push(rows.len());
             rows.push(ReportRow {
-                entity_id: entity_id.clone(),
+                record_id: record_id.clone(),
                 target: formula.target_code.clone(),
                 previous,
                 result,
@@ -209,8 +209,8 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
         }
         intents.push(json!({
             "kind": "annotate",
-            "intent_key": format!("{entity_id}:annotate"),
-            "entity_id": entity_id,
+            "intent_key": format!("{record_id}:annotate"),
+            "record_id": record_id,
             "add_tags": [CHECKED_TAG],
             "set_metadata": {"last_run_id": request.run_id, "stale_targets": stale},
         }));
@@ -224,24 +224,24 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
         }});
         let outcomes: Vec<Outcome> =
             decode(&catalog_data::batch(&batch.to_string())?, "batch outcomes")?;
-        let mut failed_entities = BTreeMap::new();
+        let mut failed_records = BTreeMap::new();
         for outcome in &outcomes {
-            let entity_id = outcome
+            let record_id = outcome
                 .intent_key
                 .split(':')
                 .next()
                 .unwrap_or_default()
                 .to_owned();
             if outcome.status == "rejected" {
-                failed_entities.insert(entity_id, outcome.error.clone().unwrap_or_default());
+                failed_records.insert(record_id, outcome.error.clone().unwrap_or_default());
             } else if outcome.intent_key.ends_with(":annotate") {
                 continue;
             } else {
                 checkpoint.updated += 1;
             }
         }
-        for (entity_id, row_indexes) in &entity_rows {
-            if let Some(error) = failed_entities.get(entity_id) {
+        for (record_id, row_indexes) in &record_rows {
+            if let Some(error) = failed_records.get(record_id) {
                 checkpoint.failed += 1;
                 for index in row_indexes {
                     rows[*index].status = format!("rejected: {}", error.replace([',', '\n'], " "));
@@ -251,7 +251,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             }
         }
     } else {
-        checkpoint.succeeded += entity_rows.len() as u64;
+        checkpoint.succeeded += record_rows.len() as u64;
     }
 
     artifacts::append_output(
@@ -270,7 +270,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             &[Entry {
                 source: "run".into(),
                 reference: Some(request.run_id.clone()),
-                entity_id: None,
+                record_id: None,
                 context_id: page.context_id.clone(),
                 target_code: None,
                 result: Some(checkpoint.updated as f64),
@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn csv_writes_header_once_and_blank_missing_numbers() {
         let rows = [ReportRow {
-            entity_id: "e".into(),
+            record_id: "e".into(),
             target: "gross".into(),
             previous: None,
             result: Some(123.0),
@@ -310,7 +310,7 @@ mod tests {
         }];
         assert_eq!(
             csv(&rows, true),
-            "entity_id,target,previous,result,status\ne,gross,,123,updated\n"
+            "record_id,target,previous,result,status\ne,gross,,123,updated\n"
         );
         assert_eq!(csv(&rows, false), "e,gross,,123,updated\n");
     }

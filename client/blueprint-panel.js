@@ -7,7 +7,7 @@ export const mount = (root, catalog) =>
     const index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
     const heading = el('h2', {}, 'Formulas');
     if (!index) {
-      return [heading, el('p', { class: 'muted' }, 'Not indexed yet. The extension validates a revision when one of its entities is updated or inspected.')];
+      return [heading, el('p', { class: 'muted' }, 'Not indexed yet. The extension validates a revision when one of its records is updated or inspected.')];
     }
     if (index.error) return [heading, el('p', { class: 'error' }, index.error)];
     if (!index.formulas.length) return [heading, el('p', { class: 'muted' }, 'This revision declares no formulas.')];

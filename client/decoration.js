@@ -1,4 +1,4 @@
-/* entity_attribute_decoration: marks formula targets. Reads the formula index
+/* record_attribute_decoration: marks formula targets. Reads the formula index
  * the server keeps in extension storage, so it needs no TOML parsing; when the
  * index is missing it falls back to the describe-formulas command, which also
  * stores the index. */
@@ -8,8 +8,8 @@ export const mount = (root, catalog) =>
   mountRenderer(root, catalog, async (context) => {
     if (!context.attribute_id || !context.blueprint_id) return null;
     let index = await loadFormulaIndex(catalog, context.blueprint_id, context.blueprint_version);
-    if (!index && context.entity_id) {
-      index = await command(catalog, 'describe-formulas', { entity_id: context.entity_id, context_id: null });
+    if (!index && context.record_id) {
+      index = await command(catalog, 'describe-formulas', { record_id: context.record_id, context_id: null });
     }
     const formula = index?.formulas?.find((item) => item.target_attribute_id === context.attribute_id);
     if (!formula) return null;

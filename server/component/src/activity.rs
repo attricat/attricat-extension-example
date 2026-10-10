@@ -26,7 +26,7 @@ pub struct Entry {
     pub source: String,
     /// The triggering event ID, or the run ID.
     pub reference: Option<String>,
-    pub entity_id: Option<String>,
+    pub record_id: Option<String>,
     pub context_id: Option<String>,
     pub target_code: Option<String>,
     pub result: Option<f64>,
@@ -38,13 +38,13 @@ impl Entry {
     pub fn error(
         source: &str,
         reference: Option<String>,
-        entity_id: Option<String>,
+        record_id: Option<String>,
         error: &str,
     ) -> Self {
         Self {
             source: source.into(),
             reference,
-            entity_id,
+            record_id,
             context_id: None,
             target_code: None,
             result: None,
@@ -113,7 +113,7 @@ mod tests {
         Entry {
             source: "event".into(),
             reference: None,
-            entity_id: None,
+            record_id: None,
             context_id: None,
             target_code: Some("gross".into()),
             result: Some(1.0),

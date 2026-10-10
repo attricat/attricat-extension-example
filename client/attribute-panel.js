@@ -1,4 +1,4 @@
-/* entity_attribute_panel (read-only panel): explains how an attribute takes
+/* record_attribute_panel (read-only panel): explains how an attribute takes
  * part in formulas. Panels cannot invoke commands, so it reads the formula
  * index the server component keeps in extension storage. */
 import { el, loadFormulaIndex, mountRenderer } from './lib.js';

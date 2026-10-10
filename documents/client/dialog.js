@@ -70,7 +70,7 @@ export const mount = (root, catalog) => {
     `;
   };
 
-  const count = catalog.context?.entity_ids?.length ?? 0;
+  const count = catalog.context?.record_ids?.length ?? 0;
   const [templateLabel, template] = select('template', 'Template', [
     ['summary', 'Summary sheet'],
     ['label', 'Product label'],
@@ -144,7 +144,7 @@ export const mount = (root, catalog) => {
         ...runs.map((run) => {
           const open = element('button', {
             type: 'button',
-            textContent: `${STATUS[run.status] ?? run.status} · ${run.selection_count} entities · ${new Date(run.created_at).toLocaleString()}`,
+            textContent: `${STATUS[run.status] ?? run.status} · ${run.selection_count} records · ${new Date(run.created_at).toLocaleString()}`,
           });
           open.addEventListener('click', () => follow(run.id));
           return element('li', {}, [open]);
@@ -211,7 +211,7 @@ export const mount = (root, catalog) => {
     style,
     element('div', { className: 'doc' }, [
       element('p', {
-        textContent: `${count} ${count === 1 ? 'entity' : 'entities'} captured. Closing this dialog does not cancel a started run; follow it under Profile → Extension runs.`,
+        textContent: `${count} ${count === 1 ? 'record' : 'records'} captured. Closing this dialog does not cancel a started run; follow it under Profile → Extension runs.`,
       }),
       element('div', { className: 'field' }, [templateLabel, template]),
       element('div', { className: 'field' }, [outputLabel, output]),

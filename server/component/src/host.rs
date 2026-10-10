@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
 use crate::catalog::host::api::{
-    self, ConfigurationScope, ConfigurationScopeKind, EntityReference, ReadRequest, ResolvedRead,
+    self, ConfigurationScope, ConfigurationScopeKind, ReadRequest, RecordReference, ResolvedRead,
     ScalarWrite, ScopedConfigurationUpdate, WriteRequest,
 };
 use crate::formulas::{AttributeSettings, BlueprintWithAttributes};
@@ -21,31 +21,31 @@ pub fn encode(value: &impl Serialize) -> Result<String, String> {
 }
 
 #[derive(Deserialize)]
-pub struct EntityRecord {
+pub struct CatalogRecord {
     pub id: String,
 }
 
-pub struct ReadEntity {
-    pub entity: EntityRecord,
+pub struct ReadRecord {
+    pub record: CatalogRecord,
     pub blueprint: BlueprintWithAttributes,
 }
 
-/// Reads an entity with its pinned blueprint revision. Not available inside
+/// Reads a record with its pinned blueprint revision. Not available inside
 /// operation runs, which read catalog data only through their selection.
-pub fn read_entity(entity_id: &str) -> Result<ReadEntity, String> {
-    let response = api::read(&ReadRequest::Entity(EntityReference {
-        entity_id: entity_id.into(),
+pub fn read_record(record_id: &str) -> Result<ReadRecord, String> {
+    let response = api::read(&ReadRequest::Record(RecordReference {
+        record_id: record_id.into(),
     }))?;
-    Ok(ReadEntity {
-        entity: decode(&response.entity, "entity")?,
+    Ok(ReadRecord {
+        record: decode(&response.record, "record")?,
         blueprint: decode(&response.blueprint, "blueprint")?,
     })
 }
 
 /// Values resolved by the host in `context_id`, keyed by attribute code.
-pub fn resolved_values(entity_id: &str, context_id: &str) -> Result<Value, String> {
+pub fn resolved_values(record_id: &str, context_id: &str) -> Result<Value, String> {
     let response = api::read(&ReadRequest::Resolved(ResolvedRead {
-        entity_id: entity_id.into(),
+        record_id: record_id.into(),
         context_id: context_id.into(),
     }))?;
     let resolved: Value = decode(
@@ -60,12 +60,12 @@ pub fn resolved_values(entity_id: &str, context_id: &str) -> Result<Value, Strin
 /// The direct (not fallback-resolved) value in `context_id`. A target inherited
 /// from a parent context still receives its own derived value.
 pub fn direct_number(
-    entity_id: &str,
+    record_id: &str,
     context_id: &str,
     attribute_id: &str,
 ) -> Result<Option<f64>, String> {
-    let response = api::read(&ReadRequest::Values(EntityReference {
-        entity_id: entity_id.into(),
+    let response = api::read(&ReadRequest::Values(RecordReference {
+        record_id: record_id.into(),
     }))?;
     let values: Vec<Value> = decode(&response.direct_values, "direct values")?;
     Ok(values
@@ -80,13 +80,13 @@ pub fn direct_number(
 }
 
 pub fn write_number(
-    entity_id: &str,
+    record_id: &str,
     context_id: &str,
     attribute_id: &str,
     value: f64,
 ) -> Result<(), String> {
     api::write(&WriteRequest {
-        entity_id: entity_id.into(),
+        record_id: record_id.into(),
         values: vec![ScalarWrite {
             attribute_id: Some(attribute_id.into()),
             attribute_code: None,
@@ -183,11 +183,11 @@ where
 }
 
 /// Publishes the manifest-declared `formula-recalculated` event contract.
-pub fn emit_recalculated(entity_id: &str, payload: Value) -> Result<(), String> {
+pub fn emit_recalculated(record_id: &str, payload: Value) -> Result<(), String> {
     let request = json!({
         "contract_id": RECALCULATED_CONTRACT,
-        "aggregate_kind": "entity",
-        "aggregate_id": entity_id,
+        "aggregate_kind": "record",
+        "aggregate_id": record_id,
         "payload": payload,
     });
     api::call("events.emit.v1", &request.to_string())?;

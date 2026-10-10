@@ -9,14 +9,14 @@ export const mount = (root, catalog) => {
   const button = document.createElement('button');
   button.type = 'button';
   const label = () => {
-    const count = catalog.context?.entity_ids?.length ?? 0;
+    const count = catalog.context?.record_ids?.length ?? 0;
     button.textContent =
       count > 1 ? `Generate documents (${count})` : 'Generate document';
     button.setAttribute(
       'aria-label',
       count > 1
-        ? `Generate documents for ${count} selected entities`
-        : 'Generate a document for this entity',
+        ? `Generate documents for ${count} selected records`
+        : 'Generate a document for this record',
     );
   };
   const theme = () => {

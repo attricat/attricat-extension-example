@@ -3,7 +3,7 @@
 //! One component on the `catalog:host@1.0.0` ABI exports both
 //! interfaces of the `catalog-extension` world:
 //!
-//! - `handler`: the `entity.updated.v1` event handler and client commands
+//! - `handler`: the `record.updated.v1` event handler and client commands
 //!   ([`handler`]).
 //! - `operations`: the interactive `recalculate-selection` operation
 //!   ([`operation`]).

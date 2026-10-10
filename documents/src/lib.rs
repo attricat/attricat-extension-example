@@ -4,7 +4,7 @@
 //! Each `process-batch` performs one small step and returns a checkpoint that
 //! fully determines the next step. A replay with the same batch key therefore
 //! produces byte-identical appends and the same stable annotation intent keys.
-//! Rendering inputs are captured once per entity and never re-read, so source
+//! Rendering inputs are captured once per record and never re-read, so source
 //! edits made after capture cannot change a retried document.
 
 wit_bindgen::generate!({ path: "../server/component/wit", world: "operation-extension" });
@@ -65,7 +65,7 @@ enum Phase {
 /// Rendering input captured once from the run's selection.
 #[derive(Clone, Deserialize, Serialize)]
 struct Captured {
-    entity_id: String,
+    record_id: String,
     position: u64,
     title: Option<String>,
     lines: Vec<String>,
@@ -74,8 +74,8 @@ struct Captured {
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
-struct EntityResult {
-    entity_id: String,
+struct RecordResult {
+    record_id: String,
     position: u64,
     /// `rendered`, `failed` or `skipped`.
     status: String,
@@ -104,7 +104,7 @@ struct Checkpoint {
     exhausted: bool,
     total: u64,
     pending: Option<Captured>,
-    results: Vec<EntityResult>,
+    results: Vec<RecordResult>,
     zip: zip::ZipState,
     pdf: pdf::StreamState,
     combined_artifact: Option<String>,
@@ -158,16 +158,16 @@ fn capture(member: &Value, read_at: &str) -> Captured {
         }
     }
     let title = title.or(first_string);
-    let entity_id = member["entity_id"].as_str().unwrap_or_default().to_owned();
+    let record_id = member["record_id"].as_str().unwrap_or_default().to_owned();
     let canonical = json!({
-        "entity_id": entity_id,
+        "record_id": record_id,
         "updated_at": member["updated_at"],
         "title": title,
         "lines": lines,
     });
     Captured {
         fingerprint: format!("{:x}", Sha256::digest(canonical.to_string().as_bytes())),
-        entity_id,
+        record_id,
         position: member["position"].as_u64().unwrap_or_default(),
         title,
         lines,
@@ -175,7 +175,7 @@ fn capture(member: &Value, read_at: &str) -> Captured {
     }
 }
 
-/// Template compatibility is validated per entity; failures are reported,
+/// Template compatibility is validated per record; failures are reported,
 /// never fatal to the run.
 fn validate(template: Template, captured: &Captured) -> Result<(), String> {
     match template {
@@ -193,11 +193,11 @@ fn page_text(template: Template, captured: &Captured) -> (String, Vec<String>) {
     let title = captured
         .title
         .clone()
-        .unwrap_or_else(|| format!("Entity {}", captured.entity_id));
+        .unwrap_or_else(|| format!("Record {}", captured.record_id));
     let lines = match template {
         Template::Summary => captured.lines.clone(),
         Template::Label => vec![
-            format!("Entity: {}", captured.entity_id),
+            format!("Record: {}", captured.record_id),
             format!("Fingerprint: {}", &captured.fingerprint[..16]),
         ],
     };
@@ -213,7 +213,7 @@ fn document_name(position: u64) -> String {
 fn annotate(
     request: &OperationRequest,
     input: &Input,
-    results: &mut [EntityResult],
+    results: &mut [RecordResult],
     indexes: &[usize],
     artifact_id: &str,
 ) {
@@ -226,8 +226,8 @@ fn annotate(
             let result = &results[*index];
             json!({
                 "kind": "annotate",
-                "intent_key": format!("doc-{}-{}", request.run_id, result.entity_id),
-                "entity_id": result.entity_id,
+                "intent_key": format!("doc-{}-{}", request.run_id, result.record_id),
+                "record_id": result.record_id,
                 "add_tags": [GENERATED_TAG],
                 "set_metadata": {"last_document": {
                     "template": input.template,
@@ -283,7 +283,7 @@ fn after_capture(checkpoint: &Checkpoint, output: Output) -> Phase {
 }
 
 fn progress(checkpoint: &Checkpoint) -> String {
-    let count = |predicate: &dyn Fn(&EntityResult) -> bool| {
+    let count = |predicate: &dyn Fn(&RecordResult) -> bool| {
         checkpoint
             .results
             .iter()
@@ -291,7 +291,7 @@ fn progress(checkpoint: &Checkpoint) -> String {
             .count()
     };
     let annotation_failed =
-        |item: &EntityResult| item.annotation.as_deref() == Some("annotation_failed");
+        |item: &RecordResult| item.annotation.as_deref() == Some("annotation_failed");
     json!({
         "completed": checkpoint.results.len(),
         "total": checkpoint.total.max(1),
@@ -317,8 +317,8 @@ fn step(
             }
             let page = parse(&selection::page(&checkpoint.cursor, 1)?, "selection page")?;
             let read_at = page["read_at"].as_str().unwrap_or_default();
-            if let Some(member) = page["entities"].get(0) {
-                let entity_id = member["entity_id"].as_str().unwrap_or_default().to_owned();
+            if let Some(member) = page["records"].get(0) {
+                let record_id = member["record_id"].as_str().unwrap_or_default().to_owned();
                 let position = member["position"].as_u64().unwrap_or_default();
                 match member["status"].as_str() {
                     Some("available") => {
@@ -328,8 +328,8 @@ fn step(
                                 checkpoint.pending = Some(captured);
                                 checkpoint.phase = Phase::Render;
                             }
-                            Err(reason) => checkpoint.results.push(EntityResult {
-                                entity_id,
+                            Err(reason) => checkpoint.results.push(RecordResult {
+                                record_id,
                                 position,
                                 status: "failed".into(),
                                 reason: Some(reason),
@@ -338,11 +338,11 @@ fn step(
                             }),
                         }
                     }
-                    status => checkpoint.results.push(EntityResult {
-                        entity_id,
+                    status => checkpoint.results.push(RecordResult {
+                        record_id,
                         position,
                         status: "skipped".into(),
-                        reason: Some(format!("entity is {}", status.unwrap_or("unavailable"))),
+                        reason: Some(format!("record is {}", status.unwrap_or("unavailable"))),
                         ..Default::default()
                     }),
                 }
@@ -363,8 +363,8 @@ fn step(
                 .ok_or("render step has no captured input")?;
             let (title, lines) = page_text(input.template, &captured);
             let name = document_name(captured.position);
-            let mut result = EntityResult {
-                entity_id: captured.entity_id.clone(),
+            let mut result = RecordResult {
+                record_id: captured.record_id.clone(),
                 position: captured.position,
                 status: "rendered".into(),
                 output_name: Some(name.clone()),
@@ -437,7 +437,7 @@ fn step(
             Ok(false)
         }
         Phase::Annotate => {
-            // Only entities included in the finalized combined output.
+            // Only records included in the finalized combined output.
             let indexes: Vec<usize> = checkpoint
                 .results
                 .iter()

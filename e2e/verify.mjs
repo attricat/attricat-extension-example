@@ -11,7 +11,7 @@
 //   CATALOG_WEB_URL=http://127.0.0.1:5173 CATALOG_SESSION_FILE=.acli-session just e2e
 //
 // The script creates its own uniquely named context, blueprint revision and
-// entities through the API, then exercises every server feature and UI
+// records through the API, then exercises every server feature and UI
 // contribution of the extension in a real browser.
 
 import { readFileSync } from 'node:fs';
@@ -66,7 +66,7 @@ const blueprintCode = `formula_e2e_${suffix}`;
 const definition = `format_version = 1
 code = "${blueprintCode}"
 name = "Formula e2e ${suffix}"
-kind = "entity"
+kind = "record"
 
 [views.dropdown_option]
 type = "dropdown_option"
@@ -119,17 +119,17 @@ const blueprint = created.blueprint ?? created;
 await api('POST', `/blueprints/${blueprint.id}/versions/${blueprint.version}/publish`);
 const revision = await api('GET', `/blueprints/${blueprint.id}/versions/${blueprint.version}`);
 const gross = revision.attributes.find((attribute) => attribute.code === 'price_gross');
-const entities = [];
+const records = [];
 for (const title of ['Alpha', 'Beta', 'Gamma']) {
-  entities.push(
-    (await api('POST', '/v1/entities', {
+  records.push(
+    (await api('POST', '/v1/records', {
       blueprint: { code: blueprintCode, version: blueprint.version },
       values: [scalar('title', title, defaultContext.id)],
     })).id,
   );
 }
-const [alpha, beta, gamma] = entities;
-console.log(`fixtures: context ${context.code}, blueprint ${blueprintCode}, entities ${entities.join(' ')}`);
+const [alpha, beta, gamma] = records;
+console.log(`fixtures: context ${context.code}, blueprint ${blueprintCode}, records ${records.join(' ')}`);
 
 // ------------------------------------------------------------- server side --
 const settings = await command(
@@ -139,10 +139,10 @@ const settings = await command(
 );
 check('scoped configuration saved through a command', settings.settings?.precision === 2);
 
-const update = (entityId, values) =>
-  api('PUT', `/v1/entities/${entityId}`, { values, relationships: [], remove_values: [] });
-const grossIn = async (entityId, contextId) => {
-  const values = await api('GET', `/entities/${entityId}/values/current`);
+const update = (recordId, values) =>
+  api('PUT', `/v1/records/${recordId}`, { values, relationships: [], remove_values: [] });
+const grossIn = async (recordId, contextId) => {
+  const values = await api('GET', `/records/${recordId}/values/current`);
   return values.find((value) => value.attribute_id === gross.id && value.context_id === contextId)?.value;
 };
 
@@ -153,7 +153,7 @@ await update(beta, [scalar('price_net', 10, context.id), scalar('vat_rate', 0.5,
 await update(gamma, [scalar('price_net', 50, defaultContext.id), scalar('vat_rate', 0.1, defaultContext.id)]);
 check('event handler writes the default context too', (await poll('gamma price_gross', () => grossIn(gamma, defaultContext.id), (value) => value !== undefined)) === 55);
 
-const described = await command('describe-formulas', { entity_id: alpha, context_id: context.id });
+const described = await command('describe-formulas', { record_id: alpha, context_id: context.id });
 check('describe-formulas evaluates and reports up to date', described.formulas?.[0]?.up_to_date === true, JSON.stringify(described.formulas?.[0]));
 const activity = await command('recent-activity', {});
 check('activity log records event writes', activity.stats.writes >= 3, JSON.stringify(activity.stats));
@@ -224,8 +224,8 @@ try {
     await frameWith(/\d+\s*evaluations/);
   });
 
-  await step('entity_attribute_panel and entity_attribute_decoration', async () => {
-    await page.goto(`${WEB}/entities/${alpha}`);
+  await step('record_attribute_panel and record_attribute_decoration', async () => {
+    await page.goto(`${WEB}/records/${alpha}`);
     await frameWith('Feeds price_gross');
     await page.getByRole('tab', { name: context.code }).click();
     await page.getByRole('button', { name: 'View extension content for price gross' }).click();
@@ -233,7 +233,7 @@ try {
     await page.keyboard.press('Escape');
   });
 
-  await step('entity_preview_panel evaluates, previews and recalculates', async () => {
+  await step('record_preview_panel evaluates, previews and recalculates', async () => {
     await page.getByRole('button', { name: 'Extension contributions' }).click();
     const inspector = await frameWith(/Result\s+122\.99 EUR/);
     await inspector.getByLabel('Expression to preview').fill('price_net * 2');
@@ -257,23 +257,23 @@ try {
     }
   });
 
-  await step('explorer_row_action (v2) opens the dialog for one entity', async () => {
-    await page.getByRole('button', { name: `Entity actions for ${alpha}` }).click();
+  await step('explorer_row_action (v2) opens the dialog for one record', async () => {
+    await page.getByRole('button', { name: `Record actions for ${alpha}` }).click();
     await page.getByRole('menu').getByRole('button', { name: /extension/i }).click();
     const row = await frameWith('Recalculate formulas…');
     await row.getByRole('button').click();
-    const dialog = await frameWith('1 selected entity');
+    const dialog = await frameWith('1 selected record');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
   });
 
   await step('explorer_bulk_action (v2) + action_dialog run the interactive operation', async () => {
     await page.goto(`${WEB}/?blueprint=${blueprintCode}&version=${blueprint.version}&context=${context.code}`);
-    await page.getByRole('button', { name: 'Select entities' }).click();
+    await page.getByRole('button', { name: 'Select records' }).click();
     const boxes = page.getByRole('checkbox');
     for (let index = 1; index < (await boxes.count()); index += 1) await boxes.nth(index).check();
     const bulk = await frameWith(/Recalculate formulas \(3\)…/);
     await bulk.getByRole('button').click();
-    const dialog = await frameWith('3 selected entities');
+    const dialog = await frameWith('3 selected records');
     await dialog.getByLabel('Mode').selectOption('write');
     await dialog.getByRole('button', { name: 'Start' }).click();
     await frameWith('Completed: 3 succeeded', 180_000);
@@ -281,8 +281,8 @@ try {
   });
 
   await step('interactive run annotated the selection', async () => {
-    const entity = await api('GET', `/entities/${beta}`);
-    if (!entity.system_tags?.includes(`${EXTENSION}:formulas-checked`)) throw new Error(JSON.stringify(entity.system_tags));
+    const record = await api('GET', `/records/${beta}`);
+    if (!record.system_tags?.includes(`${EXTENSION}:formulas-checked`)) throw new Error(JSON.stringify(record.system_tags));
   });
 
   await step('theme: frames follow dark mode', async () => {

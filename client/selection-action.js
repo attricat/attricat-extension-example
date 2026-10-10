@@ -5,7 +5,7 @@ import { el, installStyles } from './lib.js';
 
 export const mount = (root, catalog) => {
   const removeStyles = installStyles(root, catalog);
-  const count = () => catalog.context?.entity_ids?.length ?? 0;
+  const count = () => catalog.context?.record_ids?.length ?? 0;
   const button = el('button', { type: 'button', class: 'secondary' });
   const label = () => {
     button.textContent = count() > 1 ? `Recalculate formulas (${count()})…` : 'Recalculate formulas…';

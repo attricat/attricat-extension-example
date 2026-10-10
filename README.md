@@ -18,23 +18,23 @@ recalculated and written **in that same context**.
 | Surface | How the extension uses it | Code |
 | --- | --- | --- |
 | One component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
-| `server.event_handlers` | `entity.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
+| `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
 | `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
-| Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `catalog-data.batch`, annotates entities, streams a CSV report | `operation.rs` |
+| Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `catalog-data.batch`, annotates records, streams a CSV report | `operation.rs` |
 | `scoped_configuration` | Per-attribute rounding and unit for each blueprint revision | `host.rs`, `attribute-settings.js` |
 | `storage.extension` | A per-revision formula index and an activity log, written by the server and read by clients | `activity.rs`, `client/lib.js` |
 | `event_contracts` + `events.emit` | Publishes `plugin.attricat-extension-example.formula_recalculated.v1` | `handler.rs` |
-| `catalog.annotations.write` | Tags checked entities `attricat-extension-example:formulas-checked` | `operation.rs` |
+| `catalog.annotations.write` | Tags checked records `attricat-extension-example:formulas-checked` | `operation.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
-| `entity_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
-| `entity_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
-| `entity_action` (v1) | One-click recalculation followed by `catalog.refresh` | `client/entity-action.js` |
+| `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
+| `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
+| `record_action` (v1) | One-click recalculation followed by `catalog.refresh` | `client/record-action.js` |
 | `explorer_row_action` / `explorer_bulk_action` (v2) | Selection-aware actions that open the host dialog | `client/selection-action.js` |
 | `action_dialog` | Starts and follows the run, downloads the report | `client/dialog.js` |
 | `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
 | `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
-| `entity_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
+| `record_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
 | `blueprint_detail_panel` (panel) | The revision's validated formulas | `client/blueprint-panel.js` |
 | `data_health_card` (panel) | Evaluation, write, error and run counters | `client/health-card.js` |
 | Client runtime | `command`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
@@ -81,13 +81,13 @@ host retries the delivery.
 
 | Key | Writer | Readers |
 | --- | --- | --- |
-| `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read an entity of the revision | decoration, attribute panel, blueprint panel, attribute settings, dialog, interactive run |
+| `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read a record of the revision | decoration, attribute panel, blueprint panel, attribute settings, dialog, interactive run |
 | `activity` | handler, commands, interactive run (optimistic concurrency with retries) | workbench, health card |
 
 The index lets read-only panels (which cannot call commands) and interactive
 runs (which cannot read blueprints) work with validated formulas without
 parsing TOML themselves. A revision is indexed the first time one of its
-entities is updated or inspected.
+records is updated or inspected.
 
 ### Client contributions
 
@@ -138,7 +138,7 @@ in [AGENTS.md](AGENTS.md):
    ```
 
 `e2e/verify.mjs` creates its own context, blueprint revision (with the formula
-table and a `computed-number` column) and entities, then checks every server
+table and a `computed-number` column) and records, then checks every server
 feature and every UI contribution listed above in Chromium.
 
 ## Reference documents extension (`documents/`)
@@ -147,24 +147,24 @@ feature and every UI contribution listed above in Chromium.
 extension actions and interactive operations. It is an operation-only
 `catalog:host@1.0.0` component (the `operation-extension` world, built from the
 same vendored WIT as the main extension). It adds a
-**Generate document(s)** action to the entity preview, the Explorer row menu
+**Generate document(s)** action to the record preview, the Explorer row menu
 and the Explorer selection toolbar. Each opens the host-managed dialog, which
 captures the selection and starts the `generate-documents` operation with a
 template (`summary` or `label`) and an output mode (separate PDFs, a stored ZIP
 archive, or one combined PDF).
 
-The server component reads the run's frozen selection one entity per batch,
-captures each entity's rendering input once (with a SHA-256 fingerprint),
+The server component reads the run's frozen selection one record per batch,
+captures each record's rendering input once (with a SHA-256 fingerprint),
 renders a PDF from that capture, and checkpoints every step so a retried batch
-appends identical bytes. Successfully finalized entities receive the
+appends identical bytes. Successfully finalized records receive the
 `attricat.reference-documents:document-generated` tag and
 `last_document` metadata in the extension's own namespace; combined outputs
 annotate only after the archive or PDF is finalized. Every run also produces a
-`report.json` with per-entity results, including annotation failures.
+`report.json` with per-record results, including annotation failures.
 
-Intentional failure: the `summary` template fails an entity that has no saved
-values, and the `label` template fails an entity without a `title`/`name`
-string. These entities are reported as failed in the run outcome and report;
+Intentional failure: the `summary` template fails a record that has no saved
+values, and the `label` template fails a record without a `title`/`name`
+string. These records are reported as failed in the run outcome and report;
 the run itself still completes.
 
 `just check` tests the crate and checks it for `wasm32-unknown-unknown`;
