@@ -261,6 +261,7 @@ pub fn handle_command(request: CommandRequest) -> Result<CommandResponse, String
         "check-formulas-action" => check_action(decode(&request.payload, "action context")?)?,
         "list-formulas-action" => list_action(decode(&request.payload, "action context")?)?,
         "describe-fields" => describe_fields(decode(&request.payload, "field notes request")?)?,
+        "open-workbench-action" => open_workbench_action()?,
         "get-attribute-settings" | "save-attribute-settings" => {
             let input: AttributeRequest = decode(&request.payload, "settings request")?;
             if request.handler == "save-attribute-settings" {
@@ -448,28 +449,98 @@ fn check_action(input: ActionContext) -> Result<String, String> {
     action_result(message, "info", false)
 }
 
-/// What the host asks for when it shows a record's fields: the record and
-/// the context the page shows.
+/// What the host asks for when it shows records: up to 25 records, the
+/// context the page shows and the viewer's language.
 #[derive(Deserialize)]
 struct FieldNotesRequest {
-    record_id: String,
+    records: Vec<NotesRecord>,
     context_id: String,
+    locale: String,
+}
+
+#[derive(Deserialize)]
+struct NotesRecord {
+    record_id: String,
 }
 
 /// The badge-only action a "Computed" badge runs: the recalculation dialog
 /// for this record.
 const RECALCULATE_FIELD_ACTION: &str = "recalculate-field";
+/// The record page's one-click recalculation, hidden or disabled per record.
+const RECALCULATE_RECORD_ACTION: &str = "recalculate-record";
 
-const OUTPUTS: [(&str, &str); 3] = [
-    ("individual", "separate PDF"),
-    ("zip", "ZIP archive"),
-    ("combined", "combined PDF"),
-];
+/// Note texts in the viewer's language: Polish, or English otherwise.
+struct Texts {
+    computed: &'static str,
+    feeds: &'static str,
+    last_document: &'static str,
+    template: &'static str,
+    no_document: &'static str,
+    checked: &'static str,
+    /// `{n}` is the number of stale targets.
+    stale: &'static str,
+    invalid: &'static str,
+    outputs: [(&'static str, &'static str); 3],
+}
 
-/// Field notes: a "Computed" badge and the formula on each formula target,
-/// "Feeds …" on each input, and the last generated document under each file.
+const ENGLISH: Texts = Texts {
+    computed: "Computed",
+    feeds: "Feeds",
+    last_document: "Last document:",
+    template: "template",
+    no_document: "No document generated for this record yet.",
+    checked: "Formulas checked:",
+    stale: "{n} stale",
+    invalid: "Formulas are invalid",
+    outputs: [
+        ("individual", "separate PDF"),
+        ("zip", "ZIP archive"),
+        ("combined", "combined PDF"),
+    ],
+};
+
+const POLISH: Texts = Texts {
+    computed: "Wyliczane",
+    feeds: "Zasila",
+    last_document: "Ostatni dokument:",
+    template: "szablon",
+    no_document: "Dla tego rekordu nie wygenerowano jeszcze dokumentu.",
+    checked: "Sprawdzone formuły:",
+    stale: "nieaktualnych: {n}",
+    invalid: "Formuły są nieprawidłowe",
+    outputs: [
+        ("individual", "osobne pliki PDF"),
+        ("zip", "archiwum ZIP"),
+        ("combined", "połączony PDF"),
+    ],
+};
+
+fn texts(locale: &str) -> &'static Texts {
+    if locale == "pl" || locale.starts_with("pl-") {
+        &POLISH
+    } else {
+        &ENGLISH
+    }
+}
+
+/// Field notes for a batch of records. A record that cannot be described is
+/// left out rather than failing the others.
 fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
-    let read = host::read_record(&input.record_id)?;
+    let texts = texts(&input.locale);
+    let mut records = serde_json::Map::new();
+    for record in &input.records {
+        if let Ok(notes) = record_notes(&record.record_id, &input.context_id, texts) {
+            records.insert(record.record_id.clone(), notes);
+        }
+    }
+    encode(&json!({"records": records}))
+}
+
+/// One record's notes: a "Computed" badge and the formula on each formula
+/// target, "Feeds …" on each input, the last generated document beneath each
+/// file, and the record recalculation's state.
+fn record_notes(record_id: &str, context_id: &str, texts: &Texts) -> Result<Value, String> {
+    let read = host::read_record(record_id)?;
     let index = activity::refresh_index(&read.blueprint);
     let code_of: BTreeMap<&str, &str> = read
         .blueprint
@@ -492,7 +563,7 @@ fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
             .iter()
             .find(|formula| formula.target_attribute_id == *id);
         let fed = feeds(id);
-        let fed_note = (!fed.is_empty()).then(|| format!("Feeds {}", fed.join(", ")));
+        let fed_note = (!fed.is_empty()).then(|| format!("{} {}", texts.feeds, fed.join(", ")));
         let note = match target {
             Some(formula) => Some(
                 [
@@ -511,8 +582,9 @@ fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
             entry.insert(
                 "badge".into(),
                 json!({
-                    "label": "Computed",
+                    "label": texts.computed,
                     "tone": "info",
+                    "icon": "calculator",
                     "tooltip": formula.expression,
                     "action": RECALCULATE_FIELD_ACTION,
                 }),
@@ -531,7 +603,8 @@ fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
     let mut file_note = match last["template"].as_str() {
         Some(template) => {
             let output = last["output"].as_str().unwrap_or_default();
-            let label = OUTPUTS
+            let label = texts
+                .outputs
                 .iter()
                 .find(|(key, _)| *key == output)
                 .map_or(output, |(_, label)| label);
@@ -540,17 +613,22 @@ fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
                 .and_then(|at| at.get(..10))
                 .map(|day| format!(", {day}"))
                 .unwrap_or_default();
-            format!("Last document: {template} template, {label}{on}.")
+            format!(
+                "{} {template} {}, {label}{on}.",
+                texts.last_document, texts.template
+            )
         }
-        None => "No document generated for this record yet.".to_owned(),
+        None => texts.no_document.to_owned(),
     };
     if !metadata["last_run_id"].is_null() {
+        let stale = metadata["stale_targets"].as_u64().unwrap_or(0).to_string();
         file_note.push_str(&format!(
-            " Formulas checked: {} stale.",
-            metadata["stale_targets"].as_u64().unwrap_or(0)
+            " {} {}.",
+            texts.checked,
+            texts.stale.replace("{n}", &stale)
         ));
     }
-    let values = host::resolved_values(&input.record_id, &input.context_id)?;
+    let values = host::resolved_values(record_id, context_id)?;
     let mut files = serde_json::Map::new();
     for attribute in &read.blueprint.attributes {
         if attribute.value_type != "file" {
@@ -566,7 +644,24 @@ fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
             }
         }
     }
-    encode(&json!({"attributes": attributes, "files": files}))
+    // Nothing to recalculate without formulas; nothing valid to write when
+    // they are invalid.
+    let recalculation = match (&index.error, index.formulas.is_empty()) {
+        (Some(_), _) => Some(json!({"disabled": texts.invalid})),
+        (None, true) => Some(json!({"hidden": true})),
+        (None, false) => None,
+    };
+    let mut actions = serde_json::Map::new();
+    if let Some(state) = recalculation {
+        actions.insert(RECALCULATE_RECORD_ACTION.into(), state);
+    }
+    Ok(json!({"attributes": attributes, "files": files, "actions": actions}))
+}
+
+/// "Open formula workbench" in a record's actions menu: the host navigates
+/// to the extension's own page.
+fn open_workbench_action() -> Result<String, String> {
+    encode(&json!({"navigate": {"route": "formula-workbench"}}))
 }
 
 /// "Show formulas" in the Explorer toolbar: lists the revision's indexed

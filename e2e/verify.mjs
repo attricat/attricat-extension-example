@@ -403,6 +403,20 @@ try {
     await page.getByText('2 valid formulas: price_gross, price_deposit.').waitFor({ timeout: 30_000 });
   });
 
+  await step('command palette runs a page action (Ctrl+K)', async () => {
+    await page.keyboard.press('Control+k');
+    await page.getByLabel('Search actions').fill('check');
+    await page.getByRole('button', { name: /Check formulas/ }).click();
+    await page.getByText('2 valid formulas: price_gross, price_deposit.').first().waitFor({ timeout: 30_000 });
+  });
+
+  await step('a command result navigates to the extension page', async () => {
+    await page.getByRole('navigation', { name: 'Record' }).getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Open formula workbench' }).click();
+    await page.waitForURL(/\/extensions\/attricat-extension-example\/formula-workbench$/, { timeout: 30_000 });
+    await page.goto(`${WEB}/records/${alpha}`);
+  });
+
   await step('record_field_notes: the last generated document beneath a file', async () => {
     // The host renders file notes beneath read-only file values only; a
     // writer sees the file editor instead, so check as the sample viewer.
@@ -466,6 +480,36 @@ try {
     await dialog.getByRole('button', { name: 'Start' }).click();
     await frameWith('Completed: 3 succeeded', 180_000);
     if (!(await dialog.getByRole('button', { name: /Download formula-report\.csv/ }).count())) throw new Error('no report download');
+  });
+
+  await step('an operation action asks first, then starts its run', async () => {
+    await page.goto(`${WEB}/?blueprint=${blueprintCode}&version=${blueprint.version}&context=${context.code}`);
+    await page.getByRole('button', { name: 'Select records' }).click();
+    const boxes = page.getByRole('checkbox');
+    for (let index = 1; index < (await boxes.count()); index += 1) await boxes.nth(index).check();
+    await page.getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Recalculate formulas now' }).click();
+    // The host asks with the manifest's message before starting anything.
+    const confirm = page.getByRole('dialog');
+    await confirm.getByText('Write recalculated values to the selected records?', { exact: false }).waitFor();
+    await confirm.getByRole('button', { name: 'Continue' }).click();
+    await page.getByText('Extension run started.', { exact: false }).first().waitFor({ timeout: 30_000 });
+    await page.getByText('Extension run completed.').first().waitFor({ timeout: 180_000 });
+  });
+
+  await step('Polish viewers see translated titles and notes', async () => {
+    const polish = await browser.newContext({ viewport: { width: 1400, height: 1000 }, locale: 'pl-PL' });
+    try {
+      await polish.request.post(`${WEB}/api/auth/login`, {
+        data: { login_identifier: 'default.local', email: 'admin@example.test', password: 'test' },
+      });
+      const polishPage = await polish.newPage();
+      await polishPage.goto(`${WEB}/records/${alpha}`);
+      await polishPage.getByRole('button', { name: 'Przelicz formuły', exact: true }).waitFor({ timeout: 60_000 });
+      await polishPage.getByText(/Zasila price_gross/).first().waitFor({ timeout: 60_000 });
+    } finally {
+      await polish.close();
+    }
   });
 
   await step('interactive run annotated the selection', async () => {

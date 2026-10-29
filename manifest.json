@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -506,6 +506,9 @@
                 "maxLength": 36
               },
               "maxItems": 50
+            },
+            "locale": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -583,6 +586,9 @@
                 "maxLength": 36
               },
               "maxItems": 50
+            },
+            "locale": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -660,6 +666,9 @@
                 "maxLength": 36
               },
               "maxItems": 50
+            },
+            "locale": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -698,16 +707,77 @@
         "request_schema": {
           "type": "object",
           "required": [
-            "record_id",
-            "blueprint_id",
-            "blueprint_version",
-            "context_id"
+            "records",
+            "context_id",
+            "locale"
           ],
           "properties": {
-            "record_id": {
+            "records": {
+              "type": "array",
+              "maxItems": 25,
+              "items": {
+                "type": "object",
+                "required": [
+                  "record_id",
+                  "blueprint_id",
+                  "blueprint_version"
+                ],
+                "properties": {
+                  "record_id": {
+                    "type": "string",
+                    "minLength": 36,
+                    "maxLength": 36
+                  },
+                  "blueprint_id": {
+                    "type": "string",
+                    "minLength": 36,
+                    "maxLength": 36
+                  },
+                  "blueprint_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "context_id": {
               "type": "string",
               "minLength": 36,
               "maxLength": 36
+            },
+            "locale": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        },
+        "max_response_bytes": 65536
+      },
+      {
+        "id": "open-workbench-action",
+        "handler": "open-workbench-action",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action_id",
+            "blueprint_id",
+            "blueprint_version",
+            "context_id",
+            "record_ids"
+          ],
+          "properties": {
+            "action_id": {
+              "type": "string"
+            },
+            "outlet": {
+              "type": "string"
+            },
+            "context_version": {
+              "type": "integer"
             },
             "blueprint_id": {
               "type": "string",
@@ -719,9 +789,22 @@
               "minimum": 1
             },
             "context_id": {
-              "type": "string",
-              "minLength": 36,
-              "maxLength": 36
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36
+              },
+              "maxItems": 50
+            },
+            "locale": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -803,28 +886,48 @@
       "version": 1,
       "kind": "route",
       "artifact": "app",
-      "title": "Formula workbench"
+      "title": "Formula workbench",
+      "translations": {
+        "pl": {
+          "title": "Warsztat formuł"
+        }
+      }
     },
     {
       "id": "formula-workbench-nav",
       "version": 1,
       "kind": "navigation",
       "route": "formula-workbench",
-      "title": "Formula workbench"
+      "title": "Formula workbench",
+      "translations": {
+        "pl": {
+          "title": "Warsztat formuł"
+        }
+      }
     },
     {
       "id": "document-templates",
       "version": 1,
       "kind": "route",
       "artifact": "templates",
-      "title": "Document templates"
+      "title": "Document templates",
+      "translations": {
+        "pl": {
+          "title": "Szablony dokumentów"
+        }
+      }
     },
     {
       "id": "document-templates-nav",
       "version": 1,
       "kind": "navigation",
       "route": "document-templates",
-      "title": "Document templates"
+      "title": "Document templates",
+      "translations": {
+        "pl": {
+          "title": "Szablony dokumentów"
+        }
+      }
     },
     {
       "id": "formula-inspector",
@@ -839,7 +942,12 @@
       "kind": "dialog",
       "artifact": "recalculate-dialog",
       "outlet": "action_dialog",
-      "title": "Recalculate formulas"
+      "title": "Recalculate formulas",
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły"
+        }
+      }
     },
     {
       "id": "documents-dialog",
@@ -847,7 +955,12 @@
       "kind": "dialog",
       "artifact": "documents-dialog",
       "outlet": "action_dialog",
-      "title": "Generate documents"
+      "title": "Generate documents",
+      "translations": {
+        "pl": {
+          "title": "Generuj dokumenty"
+        }
+      }
     },
     {
       "id": "recalculate-field",
@@ -857,6 +970,15 @@
       "title": "Recalculate formulas…",
       "invoke": {
         "dialog": "recalculate-dialog"
+      },
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły…"
+        }
+      },
+      "icon": "calculator",
+      "when": {
+        "requires_write": true
       }
     },
     {
@@ -867,6 +989,15 @@
       "title": "Recalculate formulas",
       "invoke": {
         "command": "recalculate-action"
+      },
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły"
+        }
+      },
+      "icon": "calculator",
+      "when": {
+        "requires_write": true
       }
     },
     {
@@ -877,7 +1008,13 @@
       "title": "Generate document…",
       "invoke": {
         "dialog": "documents-dialog"
-      }
+      },
+      "translations": {
+        "pl": {
+          "title": "Generuj dokument…"
+        }
+      },
+      "icon": "file"
     },
     {
       "id": "check-formulas",
@@ -887,7 +1024,29 @@
       "title": "Check formulas",
       "invoke": {
         "command": "check-formulas-action"
-      }
+      },
+      "translations": {
+        "pl": {
+          "title": "Sprawdź formuły"
+        }
+      },
+      "icon": "check"
+    },
+    {
+      "id": "open-workbench",
+      "version": 1,
+      "kind": "action",
+      "outlet": "record_header_action",
+      "title": "Open formula workbench",
+      "invoke": {
+        "command": "open-workbench-action"
+      },
+      "translations": {
+        "pl": {
+          "title": "Otwórz warsztat formuł"
+        }
+      },
+      "icon": "settings"
     },
     {
       "id": "show-formulas",
@@ -897,7 +1056,13 @@
       "title": "Show formulas",
       "invoke": {
         "command": "list-formulas-action"
-      }
+      },
+      "translations": {
+        "pl": {
+          "title": "Pokaż formuły"
+        }
+      },
+      "icon": "search"
     },
     {
       "id": "recalculate-row",
@@ -907,6 +1072,15 @@
       "title": "Recalculate formulas…",
       "invoke": {
         "dialog": "recalculate-dialog"
+      },
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły…"
+        }
+      },
+      "icon": "calculator",
+      "when": {
+        "requires_write": true
       }
     },
     {
@@ -917,7 +1091,13 @@
       "title": "Generate document…",
       "invoke": {
         "dialog": "documents-dialog"
-      }
+      },
+      "translations": {
+        "pl": {
+          "title": "Generuj dokument…"
+        }
+      },
+      "icon": "file"
     },
     {
       "id": "recalculate-selection-action",
@@ -927,6 +1107,16 @@
       "title": "Recalculate formulas…",
       "invoke": {
         "dialog": "recalculate-dialog"
+      },
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły…"
+        }
+      },
+      "icon": "calculator",
+      "when": {
+        "requires_write": true,
+        "max_records": 50
       }
     },
     {
@@ -937,6 +1127,40 @@
       "title": "Generate documents…",
       "invoke": {
         "dialog": "documents-dialog"
+      },
+      "translations": {
+        "pl": {
+          "title": "Generuj dokumenty…"
+        }
+      },
+      "icon": "file"
+    },
+    {
+      "id": "recalculate-selection-now",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_bulk_action",
+      "title": "Recalculate formulas now",
+      "invoke": {
+        "operation": {
+          "id": "recalculate-selection",
+          "input": {
+            "mode": "write"
+          }
+        }
+      },
+      "confirm": {
+        "message": "Write recalculated values to the selected records? The run continues if you leave the page."
+      },
+      "translations": {
+        "pl": {
+          "title": "Przelicz formuły teraz"
+        }
+      },
+      "icon": "calculator",
+      "when": {
+        "requires_write": true,
+        "max_records": 50
       }
     },
     {
