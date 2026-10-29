@@ -1,4 +1,4 @@
-//! Thin wrappers over the `attricat:host@1.0.0` imports. Every call is checked
+//! Thin wrappers over the `attricat:host@1.1.0` imports. Every call is checked
 //! by the host against this release's granted capabilities.
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};

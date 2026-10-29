@@ -1,5 +1,5 @@
 //! Reference document generator for Attricat's interactive selection
-//! operations (`attricat:host@1.0.0`, `operation-extension` world).
+//! operations (`attricat:host@1.1.0`, `operation-extension` world).
 //!
 //! Each `process-batch` performs one small step and returns a checkpoint that
 //! fully determines the next step. A replay with the same batch key therefore

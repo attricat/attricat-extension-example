@@ -1,10 +1,10 @@
 {
   "manifest_version": 1,
   "name": "Reference documents",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Generates PDF documents for one record or an Explorer selection and records extension-owned annotations.",
   "icons": { "48": "icon.svg" },
-  "attricat": { "id": "attricat.reference-documents", "host_api": ">=1.0.0, <2.0.0" },
+  "attricat": { "id": "attricat.reference-documents", "host_api": ">=1.1.0, <2.0.0" },
   "permissions": [
     "attricat.read",
     "attricat.annotations.write",

@@ -1,6 +1,6 @@
 //! Attricat example extension: context-aware computed numeric attributes.
 //!
-//! One component on the `attricat:host@1.0.0` ABI exports both
+//! One component on the `attricat:host@1.1.0` ABI exports both
 //! interfaces of the `attricat-extension` world:
 //!
 //! - `handler`: the `record.updated.v1` event handler and client commands

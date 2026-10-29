@@ -3,7 +3,7 @@
 `attricat-extension-example` is the reference Attricat extension. It implements
 one feature end to end, **context-aware computed numeric attributes**, and
 uses it to show nearly every part of the extension system in a single release
-on the **`attricat:host@1.0.0`** ABI.
+on the **`attricat:host@1.1.0`** ABI.
 
 ```toml
 [extensions.attricat-extension-example.formulas]
@@ -63,7 +63,7 @@ Writes carry the extension's provenance (`extension:attricat-extension-example`)
 ### One component, two exports
 
 `server.wasm` targets the combined `attricat-extension` world of
-`attricat:host@1.0.0` (`server/component/wit`):
+`attricat:host@1.1.0` (`server/component/wit`):
 
 - **`handler`**: the event handler and client commands use the typed `api`
   imports (`read`, `write`, scoped configuration) and `call` for storage,
@@ -116,7 +116,7 @@ just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
 `just pack` builds the client bundles and the component, fails if
-`server.wasm` imports anything other than `attricat:host@1.0.0`, and packages
+`server.wasm` imports anything other than `attricat:host@1.1.0`, and packages
 exactly the files the manifest declares. The release profile optimizes for
 size because the host compiles the component on first use.
 
@@ -145,7 +145,7 @@ feature and every UI contribution listed above in Chromium.
 
 `attricat.reference-documents` is the reference workflow for selection-aware
 extension actions and interactive operations. It is an operation-only
-`attricat:host@1.0.0` component (the `operation-extension` world, built from the
+`attricat:host@1.1.0` component (the `operation-extension` world, built from the
 same vendored WIT as the main extension). It adds a
 **Generate document(s)** action to the record preview, the Explorer row menu
 and the Explorer selection toolbar. Each opens the host-managed dialog, which
