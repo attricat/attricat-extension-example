@@ -227,7 +227,14 @@ try {
   await step('record_attribute_panel and record_attribute_decoration', async () => {
     await page.goto(`${WEB}/records/${alpha}`);
     await frameWith('Feeds price_gross');
-    await page.getByRole('tab', { name: context.code }).click();
+    // The context bar shows the first few contexts as tabs and the rest in a
+    // "More contexts" combobox.
+    const contextTab = page.getByRole('tab', { name: context.code });
+    if (await contextTab.count()) await contextTab.click();
+    else {
+      await page.getByRole('combobox', { name: 'More contexts' }).click();
+      await page.getByRole('option', { name: context.code }).click();
+    }
     await page.getByRole('button', { name: 'View extension content for price gross' }).click();
     await frameWith('⚡ Computed');
     await page.keyboard.press('Escape');
