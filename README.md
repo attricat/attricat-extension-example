@@ -33,20 +33,18 @@ recalculated and written **in that same context**.
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
 | `route` + `navigation` | **Document templates**: a list page and one page per template (in-frame screens; the host URL stays fixed) with its editor, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
-| `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
+| `record_field_notes` | One command describes a record's fields: a **Computed** badge (whose action opens the recalculation dialog) and the formula on each target, **Feeds …** on each input, and the last generated document beneath each file; the host renders them | `handler.rs` (`describe-fields`) |
 | `record_action` (action) | **Recalculate formulas** calls a command whose notification and `refresh` the host applies; **Generate document…** opens the documents dialog | `manifest.json`, `handler.rs` |
 | `explorer_row_action` / `explorer_bulk_action` (action) | **Recalculate formulas…** and **Generate documents…** open the matching dialog for the row or selection | `manifest.json` |
 | `action_dialog` | Two dialogs, one per task: recalculate formulas or generate documents; each starts, follows and cancels runs and downloads outputs; the host renders the title and close control | `client/*-dialog.js`, `client/dialog-*.js` |
 | `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
 | `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
-| `record_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
 | `blueprint_detail_panel` (panel) | The revision's validated formulas | `client/blueprint-panel.js` |
 | `data_health_card` (panel) | Evaluation, write, error and run counters | `client/health-card.js` |
 | `record_header_action` (action) | **Check formulas**: a command that validates the record's revision and reports its formulas | `manifest.json`, `handler.rs` |
 | `explorer_action` (action) | **Show formulas**: a command listing the displayed revision's formulas | `manifest.json`, `handler.rs` |
 | `blueprint_panel` (panel) | Formula dependency summary, marking chained formulas | `client/blueprint-summary.js` |
 | `blueprint_publish_check` (panel) | Informational: the formulas to expect and when they are validated | `client/publish-check.js` |
-| `file_panel` (panel) | The record's last generated document and formula check, read with `attricat.request` | `client/file-panel.js` |
 | `audit_event_panel` (panel) | The extension's recent activity beside an audit event | `client/audit-panel.js` |
 | Client runtime | `command`, `request`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
 
@@ -142,7 +140,7 @@ the run itself still completes.
 
 | Key | Writer | Readers |
 | --- | --- | --- |
-| `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read a record of the revision | decoration, attribute panel, blueprint panel, attribute settings, dialog, interactive run |
+| `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read a record of the revision | field notes, blueprint panel, attribute settings, dialog, interactive run |
 | `activity` | handler, commands, interactive run (optimistic concurrency with retries) | workbench, health card |
 | `templates` | `save-template` / `delete-template` commands (optimistic concurrency per template version) | templates route and dialog (`list-templates`), document runs |
 

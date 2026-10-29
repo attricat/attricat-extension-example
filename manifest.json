@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -25,7 +25,6 @@
     "client.navigation",
     "client.notification",
     "client.refresh",
-    "client.record_decoration",
     "client.record_action",
     "client.explorer_table_cell",
     "client.explorer_row_action",
@@ -35,15 +34,14 @@
     "client.operations.read",
     "client.operations.cancel",
     "client.blueprint_configuration",
-    "client.record_attribute_panel",
     "client.blueprint_detail_panel",
     "client.data_health_card",
     "client.record_header_action",
     "client.explorer_action",
     "client.blueprint_panel",
     "client.blueprint_publish_check",
-    "client.file_panel",
-    "client.audit_event_panel"
+    "client.audit_event_panel",
+    "client.record_field_notes"
   ],
   "artifacts": [
     {
@@ -72,11 +70,6 @@
       "path": "dist/documents-dialog.js"
     },
     {
-      "id": "decoration",
-      "kind": "client_component",
-      "path": "dist/decoration.js"
-    },
-    {
       "id": "table-cell",
       "kind": "client_component",
       "path": "dist/table-cell.js"
@@ -85,11 +78,6 @@
       "id": "attribute-settings",
       "kind": "client_component",
       "path": "dist/attribute-settings.js"
-    },
-    {
-      "id": "attribute-panel",
-      "kind": "client_component",
-      "path": "dist/attribute-panel.js"
     },
     {
       "id": "blueprint-panel",
@@ -110,11 +98,6 @@
       "id": "publish-check",
       "kind": "client_component",
       "path": "dist/publish-check.js"
-    },
-    {
-      "id": "file-panel",
-      "kind": "client_component",
-      "path": "dist/file-panel.js"
     },
     {
       "id": "audit-panel",
@@ -708,6 +691,44 @@
             }
           }
         }
+      },
+      {
+        "id": "describe-fields",
+        "handler": "describe-fields",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "record_id",
+            "blueprint_id",
+            "blueprint_version",
+            "context_id"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
       }
     ],
     "operations": [
@@ -813,13 +834,6 @@
       "outlet": "record_preview_panel"
     },
     {
-      "id": "computed-value-indicator",
-      "version": 1,
-      "kind": "embedded",
-      "artifact": "decoration",
-      "outlet": "record_attribute_decoration"
-    },
-    {
       "id": "recalculate-dialog",
       "version": 1,
       "kind": "dialog",
@@ -834,6 +848,16 @@
       "artifact": "documents-dialog",
       "outlet": "action_dialog",
       "title": "Generate documents"
+    },
+    {
+      "id": "recalculate-field",
+      "version": 1,
+      "kind": "action",
+      "outlet": "record_attribute_action",
+      "title": "Recalculate formulas…",
+      "invoke": {
+        "dialog": "recalculate-dialog"
+      }
     },
     {
       "id": "recalculate-record",
@@ -930,13 +954,6 @@
       "outlet": "blueprint_attribute_configuration"
     },
     {
-      "id": "formula-attribute-panel",
-      "version": 1,
-      "kind": "panel",
-      "artifact": "attribute-panel",
-      "outlet": "record_attribute_panel"
-    },
-    {
       "id": "formula-blueprint-panel",
       "version": 1,
       "kind": "panel",
@@ -965,13 +982,6 @@
       "outlet": "blueprint_publish_check"
     },
     {
-      "id": "document-file-panel",
-      "version": 1,
-      "kind": "panel",
-      "artifact": "file-panel",
-      "outlet": "file_panel"
-    },
-    {
       "id": "formula-audit-panel",
       "version": 1,
       "kind": "panel",
@@ -992,5 +1002,11 @@
         "unit"
       ]
     }
-  ]
+  ],
+  "record_field_notes": {
+    "version": 1,
+    "source": {
+      "command": "describe-fields"
+    }
+  }
 }

@@ -139,7 +139,7 @@ for (const title of ['Alpha', 'Beta', 'Gamma']) {
   );
 }
 const [alpha, beta, gamma] = records;
-// A datasheet file on Alpha, beneath which the file_panel contribution mounts.
+// A datasheet file on Alpha, beneath which the host shows a file note.
 {
   const form = new FormData();
   form.append('file', new Blob(['Alpha datasheet\n'], { type: 'text/plain' }), 'alpha-datasheet.txt');
@@ -305,9 +305,10 @@ try {
     await frameWith(/\d+\s*evaluations/);
   });
 
-  await step('record_attribute_panel and record_attribute_decoration', async () => {
+  await step('record_field_notes: badges and notes beside the fields', async () => {
     await page.goto(`${WEB}/records/${alpha}`);
-    await frameWith('Feeds price_gross');
+    // The host renders the notes itself; no frame runs beside a field.
+    await page.getByText('Feeds price_gross').first().waitFor({ timeout: 90_000 });
     // The context bar shows the first few contexts as tabs and the rest in a
     // "More contexts" combobox.
     const contextTab = page.getByRole('tab', { name: context.code });
@@ -316,9 +317,12 @@ try {
       await page.getByRole('combobox', { name: 'More contexts' }).click();
       await page.getByRole('option', { name: context.code }).click();
     }
-    await page.getByRole('button', { name: 'View extension content for price gross' }).click();
-    await frameWith('⚡ Computed');
-    await page.keyboard.press('Escape');
+    await page.getByText('price_gross = price_net * (1 + vat_rate)').first().waitFor({ timeout: 30_000 });
+    // A Computed badge opens the recalculation dialog for this record.
+    await page.getByRole('button', { name: 'Computed' }).first().click();
+    await frameWith('1 selected record');
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
   });
 
   await step('record_preview_panel evaluates, previews and recalculates', async () => {
@@ -399,8 +403,8 @@ try {
     await page.getByText('2 valid formulas: price_gross, price_deposit.').waitFor({ timeout: 30_000 });
   });
 
-  await step('file_panel shows the last generated document', async () => {
-    // The host renders file panels beneath read-only file values only; a
+  await step('record_field_notes: the last generated document beneath a file', async () => {
+    // The host renders file notes beneath read-only file values only; a
     // writer sees the file editor instead, so check as the sample viewer.
     const viewerContext = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
     try {
@@ -413,7 +417,7 @@ try {
       if (!login.ok()) throw new Error(`viewer login → ${login.status()}`);
       const viewerPage = await viewerContext.newPage();
       await viewerPage.goto(`${WEB}/records/${alpha}`);
-      await frameWith('Last document: label template, separate PDF', 90_000, viewerPage);
+      await viewerPage.getByText(/Last document: label template, separate PDF/).waitFor({ timeout: 90_000 });
     } finally {
       await viewerContext.close();
     }

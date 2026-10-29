@@ -16,15 +16,15 @@ const FEATURES = [
   ['Event contract', 'publishes plugin.attricat-extension-example.formula_recalculated.v1', 'event_contracts · events.emit'],
   ['Route + navigation', 'this workbench, and Document templates for versioned document templates', 'route · navigation'],
   ['Record preview panel', 'formulas evaluated in the selected context, preview, recalculate', 'record_preview_panel'],
-  ['Attribute decoration', '⚡ Computed badge on formula targets', 'record_attribute_decoration'],
+  ['Field notes', 'Computed badges, formulas and Feeds notes beside fields; the last document beneath files', 'record_field_notes · record_attribute_action'],
   ['Record actions', 'host-rendered buttons: a recalculation command whose result the host shows and refreshes, and a documents dialog', 'record_action · action.invoke'],
   ['Selection actions + dialogs', 'row and bulk menu items open the recalculation or documents dialog, which starts its run', 'explorer_row_action · explorer_bulk_action · action_dialog'],
   ['Table cell renderer', 'computed-number with precision/unit props', 'explorer_table_cell · cell_renderers'],
   ['Attribute settings', 'rounding/unit editor in the blueprint editor', 'blueprint_attribute_configuration'],
-  ['Read-only panels', 'attribute inputs, blueprint formulas, health counters', 'record_attribute_panel · blueprint_detail_panel · data_health_card'],
+  ['Read-only panels', 'blueprint formulas, health counters', 'blueprint_detail_panel · data_health_card'],
   ['Header and toolbar actions', 'menu items calling commands: check a record\'s formulas; list a revision\'s formulas', 'record_header_action · explorer_action'],
   ['Blueprint panels', 'formula dependency summary beside the revision; publish-time reminder of the formulas to expect', 'blueprint_panel · blueprint_publish_check'],
-  ['File and audit panels', 'record annotations beneath file links; formula activity beside audit events', 'file_panel · audit_event_panel · attricat.request'],
+  ['Audit panel', 'formula activity beside audit events', 'audit_event_panel'],
 ];
 
 const Overview = () => (

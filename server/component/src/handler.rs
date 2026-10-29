@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::activity::{self, Activity, Entry};
 use crate::attricat::host::api::Event;
@@ -260,6 +260,7 @@ pub fn handle_command(request: CommandRequest) -> Result<CommandResponse, String
         "recalculate-action" => recalculate_action(decode(&request.payload, "action context")?)?,
         "check-formulas-action" => check_action(decode(&request.payload, "action context")?)?,
         "list-formulas-action" => list_action(decode(&request.payload, "action context")?)?,
+        "describe-fields" => describe_fields(decode(&request.payload, "field notes request")?)?,
         "get-attribute-settings" | "save-attribute-settings" => {
             let input: AttributeRequest = decode(&request.payload, "settings request")?;
             if request.handler == "save-attribute-settings" {
@@ -445,6 +446,127 @@ fn check_action(input: ActionContext) -> Result<String, String> {
         ),
     };
     action_result(message, "info", false)
+}
+
+/// What the host asks for when it shows a record's fields: the record and
+/// the context the page shows.
+#[derive(Deserialize)]
+struct FieldNotesRequest {
+    record_id: String,
+    context_id: String,
+}
+
+/// The badge-only action a "Computed" badge runs: the recalculation dialog
+/// for this record.
+const RECALCULATE_FIELD_ACTION: &str = "recalculate-field";
+
+const OUTPUTS: [(&str, &str); 3] = [
+    ("individual", "separate PDF"),
+    ("zip", "ZIP archive"),
+    ("combined", "combined PDF"),
+];
+
+/// Field notes: a "Computed" badge and the formula on each formula target,
+/// "Feeds …" on each input, and the last generated document under each file.
+fn describe_fields(input: FieldNotesRequest) -> Result<String, String> {
+    let read = host::read_record(&input.record_id)?;
+    let index = activity::refresh_index(&read.blueprint);
+    let code_of: BTreeMap<&str, &str> = read
+        .blueprint
+        .attributes
+        .iter()
+        .map(|attribute| (attribute.id.as_str(), attribute.code.as_str()))
+        .collect();
+    let feeds = |attribute_id: &str| -> Vec<&str> {
+        index
+            .formulas
+            .iter()
+            .filter(|formula| formula.dependencies.iter().any(|id| id == attribute_id))
+            .map(|formula| formula.target_code.as_str())
+            .collect()
+    };
+    let mut attributes = serde_json::Map::new();
+    for (id, code) in &code_of {
+        let target = index
+            .formulas
+            .iter()
+            .find(|formula| formula.target_attribute_id == *id);
+        let fed = feeds(id);
+        let fed_note = (!fed.is_empty()).then(|| format!("Feeds {}", fed.join(", ")));
+        let note = match target {
+            Some(formula) => Some(
+                [
+                    Some(format!("{} = {}", formula.target_code, formula.expression)),
+                    fed_note,
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" · "),
+            ),
+            None => fed_note,
+        };
+        let mut entry = serde_json::Map::new();
+        if let Some(formula) = target {
+            entry.insert(
+                "badge".into(),
+                json!({
+                    "label": "Computed",
+                    "tone": "info",
+                    "tooltip": formula.expression,
+                    "action": RECALCULATE_FIELD_ACTION,
+                }),
+            );
+        }
+        if let Some(note) = note {
+            entry.insert("note".into(), json!(note));
+        }
+        if !entry.is_empty() {
+            attributes.insert((*code).to_owned(), Value::Object(entry));
+        }
+    }
+
+    let metadata = &read.record.system_metadata[formulas::EXTENSION_ID];
+    let last = &metadata["last_document"];
+    let mut file_note = match last["template"].as_str() {
+        Some(template) => {
+            let output = last["output"].as_str().unwrap_or_default();
+            let label = OUTPUTS
+                .iter()
+                .find(|(key, _)| *key == output)
+                .map_or(output, |(_, label)| label);
+            let on = last["generated_at"]
+                .as_str()
+                .and_then(|at| at.get(..10))
+                .map(|day| format!(", {day}"))
+                .unwrap_or_default();
+            format!("Last document: {template} template, {label}{on}.")
+        }
+        None => "No document generated for this record yet.".to_owned(),
+    };
+    if !metadata["last_run_id"].is_null() {
+        file_note.push_str(&format!(
+            " Formulas checked: {} stale.",
+            metadata["stale_targets"].as_u64().unwrap_or(0)
+        ));
+    }
+    let values = host::resolved_values(&input.record_id, &input.context_id)?;
+    let mut files = serde_json::Map::new();
+    for attribute in &read.blueprint.attributes {
+        if attribute.value_type != "file" {
+            continue;
+        }
+        for file in values[&attribute.code]["value"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if let Some(file_id) = file["id"].as_str() {
+                files.insert(file_id.to_owned(), json!({"note": file_note}));
+            }
+        }
+    }
+    encode(&json!({"attributes": attributes, "files": files}))
 }
 
 /// "Show formulas" in the Explorer toolbar: lists the revision's indexed

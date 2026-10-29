@@ -23,6 +23,9 @@ pub fn encode(value: &impl Serialize) -> Result<String, String> {
 #[derive(Deserialize)]
 pub struct AttricatRecord {
     pub id: String,
+    /// Annotations by namespace; this extension's are under its own ID.
+    #[serde(default)]
+    pub system_metadata: Value,
 }
 
 pub struct ReadRecord {
