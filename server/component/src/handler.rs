@@ -273,6 +273,9 @@ pub fn handle_command(request: CommandRequest) -> Result<CommandResponse, String
             )?;
             encode(&json!({"settings": settings}))?
         }
+        "list-templates" | "save-template" | "delete-template" => {
+            crate::documents::templates::handle_command(&request.handler, &request.payload)?
+        }
         "recent-activity" => {
             let activity = host::storage_get::<Activity>(activity::ACTIVITY_KEY)?
                 .map(|(activity, _)| activity)

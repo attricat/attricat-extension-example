@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -135,6 +135,11 @@
       "id": "audit-panel",
       "kind": "client_component",
       "path": "dist/audit-panel.js"
+    },
+    {
+      "id": "templates",
+      "kind": "client_component",
+      "path": "dist/templates.js"
     }
   ],
   "configuration": {
@@ -393,6 +398,109 @@
         "response_schema": {
           "type": "object"
         }
+      },
+      {
+        "id": "list-templates",
+        "handler": "list-templates",
+        "request_schema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
+        "id": "save-template",
+        "handler": "save-template",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "template",
+            "expected_version"
+          ],
+          "properties": {
+            "template": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "layout"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]{1,32}$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                },
+                "layout": {
+                  "type": "string",
+                  "enum": [
+                    "summary",
+                    "label"
+                  ]
+                },
+                "heading": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "attributes": {
+                  "type": "array",
+                  "maxItems": 40,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_-]{1,64}$"
+                  }
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "builtin": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "expected_version": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
+      },
+      {
+        "id": "delete-template",
+        "handler": "delete-template",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9_-]{1,32}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object"
+        }
       }
     ],
     "operations": [
@@ -435,14 +543,11 @@
           "properties": {
             "template": {
               "type": "string",
-              "enum": [
-                "summary",
-                "label"
-              ]
+              "pattern": "^[a-z0-9_-]{1,32}$"
             },
             "template_version": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "output": {
               "type": "string",
@@ -478,6 +583,20 @@
       "kind": "navigation",
       "route": "formula-workbench",
       "title": "Formula workbench"
+    },
+    {
+      "id": "document-templates",
+      "version": 1,
+      "kind": "route",
+      "artifact": "templates",
+      "title": "Document templates"
+    },
+    {
+      "id": "document-templates-nav",
+      "version": 1,
+      "kind": "navigation",
+      "route": "document-templates",
+      "title": "Document templates"
     },
     {
       "id": "formula-inspector",

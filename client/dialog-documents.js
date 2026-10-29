@@ -3,7 +3,7 @@
  * PDF), follows the run and offers its downloads. The host dialog provides
  * the close control; closing never cancels a started run, which stays listed
  * under Profile → Extension runs. Demonstrates `attricat.operations.cancel`. */
-import { el } from './lib.js';
+import { command, el } from './lib.js';
 
 const OPERATION = 'generate-documents';
 const POLL_MS = 2000;
@@ -41,10 +41,10 @@ export const mountDocuments = (body, attricat) => {
   let currentRun;
 
   const count = attricat.context?.record_ids?.length ?? 0;
-  const templateField = select('template', 'Template', [
-    ['summary', 'Summary sheet'],
-    ['label', 'Product label'],
-  ]);
+  // Templates come from the Document templates route; a run renders the
+  // version listed here.
+  const templateField = select('template', 'Template', []);
+  let versions = {};
   const outputField = select('output', 'Output', [
     ['individual', 'Separate PDFs'],
     ['zip', 'ZIP archive'],
@@ -109,7 +109,7 @@ export const mountDocuments = (body, attricat) => {
     try {
       const { run_id } = await attricat.operations.start({
         operation_id: OPERATION,
-        input: { template: template.value, template_version: 1, output: output.value },
+        input: { template: template.value, template_version: versions[template.value], output: output.value },
         idempotency_key: pendingKey,
       });
       pendingKey = undefined;
@@ -142,6 +142,18 @@ export const mountDocuments = (body, attricat) => {
     el('div', { class: 'row' }, generate, cancel),
     status,
     downloads,
+  );
+  generate.disabled = true;
+  command(attricat, 'list-templates', {}).then(
+    ({ templates }) => {
+      if (disposed) return;
+      versions = Object.fromEntries(templates.map((item) => [item.id, item.version]));
+      template.replaceChildren(...templates.map((item) => el('option', { value: item.id }, `${item.name} (v${item.version})`)));
+      generate.disabled = templates.length === 0;
+    },
+    () => {
+      if (!disposed) status.textContent = 'Templates could not be loaded.';
+    },
   );
 
   return () => {

@@ -14,7 +14,7 @@ const FEATURES = [
   ['Scoped configuration', 'per-attribute rounding and unit for each blueprint revision', 'scoped_configuration'],
   ['Extension storage', 'formula index and activity log shared by server and panels', 'storage.extension'],
   ['Event contract', 'publishes plugin.attricat-extension-example.formula_recalculated.v1', 'event_contracts · events.emit'],
-  ['Route + navigation', 'this workbench', 'route · navigation'],
+  ['Route + navigation', 'this workbench, and Document templates for versioned document templates', 'route · navigation'],
   ['Record preview panel', 'formulas evaluated in the selected context, preview, recalculate', 'record_preview_panel'],
   ['Attribute decoration', '⚡ Computed badge on formula targets', 'record_attribute_decoration'],
   ['Record action', 'one-click recalculation with host refresh, and document generation through the dialog', 'record_action v2 · client.refresh'],

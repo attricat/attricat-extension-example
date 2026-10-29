@@ -259,6 +259,29 @@ try {
     await app.getByText('evaluations').first().waitFor({ timeout: 60_000 });
   });
 
+  await step('route + navigation: document templates are created and versioned', async () => {
+    await page.goto(`${WEB}/extensions/${EXTENSION}/document-templates`);
+    const app = await frameWith('Summary sheet');
+    if (!(await page.getByRole('link', { name: 'Document templates' }).count())) throw new Error('navigation entry missing');
+    // The suite reuses one workspace: start from a clean slate.
+    if (await app.getByRole('button', { name: 'Delete Price sheet' }).count()) {
+      await app.getByRole('button', { name: 'Delete Price sheet' }).click();
+      await app.getByText('Deleted Price sheet.').waitFor({ timeout: 30_000 });
+    }
+    await app.getByRole('button', { name: 'New template' }).click();
+    await app.getByLabel('Template ID').fill('price-sheet');
+    await app.getByLabel('Name').fill('Price sheet');
+    await app.getByLabel('Attributes').fill('title, price_gross');
+    await app.getByRole('button', { name: 'Save template' }).click();
+    await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
+    await app.getByRole('button', { name: 'Edit Price sheet' }).click();
+    await app.getByLabel('Heading').fill(`E2E ${suffix}`);
+    await app.getByRole('button', { name: 'Save template' }).click();
+    await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
+    const row = app.getByRole('row', { name: /Price sheet/ });
+    if (!/title, price_gross\s*2/.test(await row.innerText())) throw new Error(await row.innerText());
+  });
+
   await step('blueprint_detail_panel lists the validated formula', async () => {
     await page.goto(`${WEB}/manage/blueprints/${blueprint.id}`);
     await frameWith('price_net, vat_rate');
@@ -317,7 +340,8 @@ try {
     const action = await frameWith('Generate document…');
     await action.getByRole('button', { name: 'Generate document…' }).click();
     // Opened from the record preview, the dialog starts on its documents task.
-    const dialog = await frameWith('1 record captured');
+    const dialog = await frameWith('Price sheet (v2)');
+    await dialog.getByLabel('Template').selectOption('price-sheet');
     await dialog.getByLabel('Output').selectOption('combined');
     await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
     await frameWith('Run Completed · 1 generated', 180_000);
@@ -332,6 +356,8 @@ try {
   await step('document run annotated the record', async () => {
     const record = await api('GET', `/records/${alpha}`);
     if (!record.system_tags?.includes(`${EXTENSION}:document-generated`)) throw new Error(JSON.stringify(record.system_tags));
+    const last = record.system_metadata?.[EXTENSION]?.last_document;
+    if (last?.template !== 'price-sheet' || last?.template_version !== 2) throw new Error(JSON.stringify(last));
   });
 
   await step('record_header_action checks the formulas', async () => {
@@ -362,7 +388,7 @@ try {
       if (!login.ok()) throw new Error(`viewer login → ${login.status()}`);
       const viewerPage = await viewerContext.newPage();
       await viewerPage.goto(`${WEB}/records/${alpha}`);
-      await frameWith('Last document: summary template, combined PDF', 90_000, viewerPage);
+      await frameWith('Last document: price-sheet template, combined PDF', 90_000, viewerPage);
     } finally {
       await viewerContext.close();
     }

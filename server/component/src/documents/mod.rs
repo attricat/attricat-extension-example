@@ -9,6 +9,7 @@
 //! edits made after capture cannot change a retried document.
 
 mod pdf;
+pub mod templates;
 mod zip;
 
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,7 @@ use sha2::{Digest, Sha256};
 use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::attricat::host::{artifacts, attricat_data, selection};
 use crate::exports::attricat::host::deferrable_operations::{BatchOutcome, OperationRequest};
+use templates::{DocumentTemplate, Layout};
 
 pub const OPERATION: &str = "generate-documents";
 const MAX_LINES: usize = 40;
@@ -31,13 +33,6 @@ const GENERATED_TAG: &str = "document-generated";
 
 #[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum Template {
-    Summary,
-    Label,
-}
-
-#[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 enum Output {
     Individual,
     Zip,
@@ -47,7 +42,10 @@ enum Output {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Input {
-    template: Template,
+    /// A template ID from the Document templates route.
+    template: String,
+    /// The template version the dialog showed; a run of any other version is
+    /// rejected, so an edit made meanwhile never changes what was requested.
     template_version: u32,
     output: Output,
 }
@@ -109,6 +107,8 @@ struct Checkpoint {
     zip: zip::ZipState,
     pdf: pdf::StreamState,
     combined_artifact: Option<String>,
+    /// The requested template, snapshotted by the first batch.
+    template: Option<DocumentTemplate>,
 }
 
 fn parse(value: &str, label: &str) -> Result<Value, String> {
@@ -133,23 +133,36 @@ fn truncate(text: &str, limit: usize) -> String {
     text.chars().take(limit).collect()
 }
 
-fn capture(member: &Value, read_at: &str) -> Captured {
+/// Captures the title and the template's printed values. A summary with an
+/// attribute list prints those codes in its order; otherwise every saved value.
+fn capture(member: &Value, read_at: &str, attributes: &[String]) -> Captured {
     let mut title = None;
     let mut first_string = None;
     let mut lines = Vec::new();
     let mut bytes = 0;
     if let Some(values) = member["values"].as_object() {
+        let selected: Vec<(&String, &Value)> = if attributes.is_empty() {
+            values.iter().collect()
+        } else {
+            attributes
+                .iter()
+                .filter_map(|code| values.get_key_value(code))
+                .collect()
+        };
         for (code, entry) in values {
             let raw = entry.get("value").unwrap_or(entry);
-            let Some(text) = scalar_text(raw) else {
-                continue;
-            };
-            if raw.is_string() {
+            if let (Value::String(_), Some(text)) = (raw, scalar_text(raw)) {
                 if title.is_none() && matches!(code.as_str(), "title" | "name") {
                     title = Some(truncate(&text, MAX_LINE_CHARS));
                 }
                 first_string.get_or_insert_with(|| truncate(&text, MAX_LINE_CHARS));
             }
+        }
+        for (code, entry) in selected {
+            let raw = entry.get("value").unwrap_or(entry);
+            let Some(text) = scalar_text(raw) else {
+                continue;
+            };
             let line = truncate(&format!("{code}: {text}"), MAX_LINE_CHARS);
             if lines.len() >= MAX_LINES || bytes + line.len() > MAX_CAPTURE_BYTES {
                 break;
@@ -178,31 +191,69 @@ fn capture(member: &Value, read_at: &str) -> Captured {
 
 /// Template compatibility is validated per record; failures are reported,
 /// never fatal to the run.
-fn validate(template: Template, captured: &Captured) -> Result<(), String> {
-    match template {
-        Template::Label if captured.title.is_none() => {
-            Err("the label template requires a title or name value".into())
-        }
-        Template::Summary if captured.lines.is_empty() => {
-            Err("the summary template requires at least one saved value".into())
-        }
+fn validate(template: &DocumentTemplate, captured: &Captured) -> Result<(), String> {
+    match template.layout {
+        Layout::Label if captured.title.is_none() => Err(format!(
+            "the `{}` label template requires a title or name value",
+            template.id
+        )),
+        Layout::Summary if captured.lines.is_empty() => Err(format!(
+            "the `{}` summary template found none of its values saved",
+            template.id
+        )),
         _ => Ok(()),
     }
 }
 
-fn page_text(template: Template, captured: &Captured) -> (String, Vec<String>) {
+fn page_text(template: &DocumentTemplate, captured: &Captured) -> (String, Vec<String>) {
     let title = captured
         .title
         .clone()
         .unwrap_or_else(|| format!("Record {}", captured.record_id));
-    let lines = match template {
-        Template::Summary => captured.lines.clone(),
-        Template::Label => vec![
+    let mut lines = Vec::new();
+    if !template.heading.is_empty() {
+        lines.extend([template.heading.clone(), String::new()]);
+    }
+    match template.layout {
+        Layout::Summary => lines.extend(captured.lines.iter().cloned()),
+        Layout::Label => lines.extend([
             format!("Record: {}", captured.record_id),
             format!("Fingerprint: {}", &captured.fingerprint[..16]),
-        ],
-    };
+        ]),
+    }
     (title, lines)
+}
+
+/// Snapshots the requested template version from storage.
+fn load_template(input: &Input) -> Result<DocumentTemplate, Failure> {
+    let rejected = |code: &str, message: String| {
+        Failure::Rejected(Rejection {
+            code: code.into(),
+            message,
+            record_id: None,
+            connection: None,
+        })
+    };
+    let (templates, _) = templates::load()?;
+    let template = templates
+        .into_iter()
+        .find(|template| template.id == input.template)
+        .ok_or_else(|| {
+            rejected(
+                "template_missing",
+                format!("Template `{}` no longer exists.", input.template),
+            )
+        })?;
+    if template.version != input.template_version {
+        return Err(rejected(
+            "template_changed",
+            format!(
+                "Template `{}` is at version {}, not {}; start the run again.",
+                template.id, template.version, input.template_version
+            ),
+        ));
+    }
+    Ok(template)
 }
 
 fn document_name(position: u64) -> String {
@@ -308,6 +359,7 @@ fn progress(checkpoint: &Checkpoint) -> String {
 fn step(
     request: &OperationRequest,
     input: &Input,
+    template: &DocumentTemplate,
     checkpoint: &mut Checkpoint,
 ) -> Result<bool, String> {
     match checkpoint.phase {
@@ -323,8 +375,8 @@ fn step(
                 let position = member["position"].as_u64().unwrap_or_default();
                 match member["status"].as_str() {
                     Some("available") => {
-                        let captured = capture(member, read_at);
-                        match validate(input.template, &captured) {
+                        let captured = capture(member, read_at, &template.attributes);
+                        match validate(template, &captured) {
                             Ok(()) => {
                                 checkpoint.pending = Some(captured);
                                 checkpoint.phase = Phase::Render;
@@ -362,7 +414,7 @@ fn step(
                 .pending
                 .take()
                 .ok_or("render step has no captured input")?;
-            let (title, lines) = page_text(input.template, &captured);
+            let (title, lines) = page_text(template, &captured);
             let name = document_name(captured.position);
             let mut result = RecordResult {
                 record_id: captured.record_id.clone(),
@@ -482,9 +534,11 @@ fn step(
 
 pub fn prepare(request: &OperationRequest) -> Result<String, String> {
     let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
-    if input.template_version != 1 {
-        return Err("unsupported template version".into());
-    }
+    load_template(&input).map_err(|failure| match failure {
+        Failure::Rejected(rejection) => rejection.message,
+        Failure::Retry(retry) => retry.message,
+        Failure::Fault(message) => message,
+    })?;
     Ok("validated document request".into())
 }
 
@@ -503,7 +557,15 @@ pub fn process_batch(request: &OperationRequest) -> Result<BatchOutcome, Failure
         .map_err(|_| rejected("invalid_input", "invalid input"))?;
     let mut checkpoint: Checkpoint = serde_json::from_str(&request.checkpoint)
         .map_err(|_| rejected("invalid_checkpoint", "invalid checkpoint"))?;
-    let done = step(request, &input, &mut checkpoint)?;
+    let template = match checkpoint.template.clone() {
+        Some(template) => template,
+        None => {
+            let template = load_template(&input)?;
+            checkpoint.template = Some(template.clone());
+            template
+        }
+    };
+    let done = step(request, &input, &template, &mut checkpoint)?;
     Ok(BatchOutcome {
         progress: progress(&checkpoint),
         checkpoint: serde_json::to_string(&checkpoint)

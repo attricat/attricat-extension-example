@@ -31,6 +31,7 @@ recalculated and written **in that same context**.
 | `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata, from runs; the event handler records `last_recalculated` metadata with an annotation-only `attricat.command.v1` batch | `operation.rs`, `documents/`, `handler.rs`, `host.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
+| `route` + `navigation` | **Document templates**: create, edit and delete versioned templates (layout, heading, printed attributes) through commands | `client/templates.jsx`, `documents/templates.rs` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
 | `record_action` (v2) | One-click recalculation followed by `attricat.refresh`, and **Generate document…** opening the host dialog | `client/record-action.js` |
@@ -102,9 +103,17 @@ is what lets the handler skip the events its own writes cause.
 
 ### Documents
 
-`generate-documents` (`server/component/src/documents/`) takes a template
-(`summary` or `label`) and an output mode (separate PDFs, a stored ZIP
-archive, or one combined PDF). It reads the run's frozen selection one record
+`generate-documents` (`server/component/src/documents/`) takes a template ID
+and version and an output mode (separate PDFs, a stored ZIP archive, or one
+combined PDF). Templates are managed on the **Document templates** route and
+stored under the `templates` storage key; until the first save the built-in
+`summary` and `label` apply (built-ins can be edited, not deleted). A template
+has a layout (`summary` prints chosen saved values, `label` the title, record
+ID and fingerprint), an optional heading and, for summaries, the attribute
+codes to print in order. Every save bumps its version. The dialog starts a run
+of the version it shows; the run rejects a version that changed meanwhile and
+snapshots the template in its checkpoint, so later edits never change a
+started or retried run. It reads the run's frozen selection one record
 per batch, captures each record's rendering input once (with a SHA-256
 fingerprint), renders a PDF from that capture, and checkpoints every step so a
 retried batch appends identical bytes. Successfully finalized records receive
@@ -113,8 +122,8 @@ metadata in the extension's own namespace; combined outputs annotate only
 after the archive or PDF is finalized. Every run also produces a
 `report.json` with per-record results, including annotation failures.
 
-Intentional failure: the `summary` template fails a record that has no saved
-values, and the `label` template fails a record without a `title`/`name`
+Intentional failure: a summary template fails a record that has none of its
+values saved, and a label template fails a record without a `title`/`name`
 string. These records are reported as failed in the run outcome and report;
 the run itself still completes.
 
@@ -124,6 +133,7 @@ the run itself still completes.
 | --- | --- | --- |
 | `formulas:<blueprint_id>:<version>` | handler and commands, whenever they read a record of the revision | decoration, attribute panel, blueprint panel, attribute settings, dialog, interactive run |
 | `activity` | handler, commands, interactive run (optimistic concurrency with retries) | workbench, health card |
+| `templates` | `save-template` / `delete-template` commands (optimistic concurrency per template version) | templates route and dialog (`list-templates`), document runs |
 
 The index lets read-only panels (which cannot call commands) and interactive
 runs (which cannot read blueprints) work with validated formulas without
