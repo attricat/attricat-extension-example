@@ -19,17 +19,8 @@ dependencies = [
  "attricat-extension-example-formula-core",
  "serde",
  "serde_json",
- "toml",
- "wit-bindgen",
-]
-
-[[package]]
-name = "attricat-reference-documents"
-version = "1.1.0"
-dependencies = [
- "serde",
- "serde_json",
  "sha2",
+ "toml",
  "wit-bindgen",
 ]
 

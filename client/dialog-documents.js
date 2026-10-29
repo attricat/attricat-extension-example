@@ -1,0 +1,175 @@
+/* The dialog's "Generate documents" task: starts the interactive
+ * `generate-documents` operation (separate PDFs, a ZIP archive or one combined
+ * PDF), follows the run, offers its downloads and lists recent runs. Closing
+ * the dialog never cancels a started run, which stays listed under
+ * Profile → Extension runs. Demonstrates `attricat.operations.cancel/list`. */
+import { el } from './lib.js';
+
+const OPERATION = 'generate-documents';
+const POLL_MS = 2000;
+const RECENT_RUNS = 5;
+const ACTIVE = new Set(['queued', 'running', 'cancelling']);
+const STATUS = {
+  queued: 'Queued',
+  running: 'Running',
+  cancelling: 'Cancelling',
+  cancelled: 'Cancelled',
+  completed: 'Completed',
+  failed: 'Failed',
+};
+
+const newKey = () => {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return `doc-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+};
+
+const select = (id, label, options) => {
+  const control = el('select', { id }, options.map(([value, text]) => el('option', { value }, text)));
+  return el('div', { class: 'stack' }, el('label', { for: id }, label), control);
+};
+
+const outcomeText = (progress) => {
+  const outcome = progress?.outcome;
+  if (!outcome) return '';
+  return ` · ${outcome.succeeded ?? 0} generated, ${outcome.failed ?? 0} failed, ${outcome.skipped ?? 0} skipped`;
+};
+
+export const mountDocuments = (body, attricat, close) => {
+  let disposed = false;
+  let timer;
+  let pendingKey;
+  let currentRun;
+
+  const count = attricat.context?.record_ids?.length ?? 0;
+  const templateField = select('template', 'Template', [
+    ['summary', 'Summary sheet'],
+    ['label', 'Product label'],
+  ]);
+  const outputField = select('output', 'Output', [
+    ['individual', 'Separate PDFs'],
+    ['zip', 'ZIP archive'],
+    ['combined', 'One combined PDF'],
+  ]);
+  const template = templateField.querySelector('select');
+  const output = outputField.querySelector('select');
+  const generate = el('button', { type: 'button' }, 'Generate');
+  const cancel = el('button', { type: 'button', class: 'secondary', hidden: true }, 'Cancel run');
+  const status = el('p', { role: 'status', 'aria-live': 'polite', class: 'muted' });
+  const downloads = el('ul', { hidden: true, 'aria-label': 'Generated files' });
+  const recent = el('ul', { 'aria-label': 'Recent document runs' });
+
+  const showRun = (run) => {
+    currentRun = run;
+    status.textContent = `Run ${STATUS[run.status] ?? run.status}${outcomeText(run.progress)}`;
+    cancel.hidden = !run.can_cancel;
+    const files = run.status === 'completed' ? run.artifacts ?? [] : [];
+    downloads.hidden = files.length === 0;
+    downloads.replaceChildren(
+      ...files.map((artifact) =>
+        el('li', {}, el('button', {
+          type: 'button',
+          class: 'secondary',
+          onclick: () =>
+            attricat.operations.download({ run_id: run.id, artifact_id: artifact.id }).catch(() => {
+              status.textContent = 'The download is no longer available.';
+            }),
+        }, `Download ${artifact.name ?? 'file'}`)),
+      ),
+    );
+    if (run.status === 'completed' && run.outputs_expired) status.textContent += ' · downloads have expired';
+  };
+
+  const poll = async (runId) => {
+    clearTimeout(timer);
+    try {
+      const run = await attricat.operations.get({ run_id: runId });
+      if (disposed || currentRun?.id !== runId) return;
+      showRun(run);
+      if (ACTIVE.has(run.status)) timer = setTimeout(() => poll(runId), POLL_MS);
+      else refreshRecent();
+    } catch {
+      if (!disposed) status.textContent = 'The run status could not be loaded.';
+    }
+  };
+
+  const follow = (runId) => {
+    currentRun = { id: runId };
+    poll(runId);
+  };
+
+  const refreshRecent = async () => {
+    try {
+      const runs = (await attricat.operations.list())
+        .filter((run) => run.operation_id === OPERATION)
+        .slice(0, RECENT_RUNS);
+      if (disposed) return;
+      recent.replaceChildren(
+        ...runs.map((run) =>
+          el('li', {}, el('button', { type: 'button', class: 'secondary', onclick: () => follow(run.id) },
+            `${STATUS[run.status] ?? run.status} · ${run.selection_count} records · ${new Date(run.created_at).toLocaleString()}`)),
+        ),
+      );
+    } catch {
+      recent.replaceChildren();
+    }
+  };
+
+  // A changed request must not reuse a key that may already name a run.
+  const resetKey = () => {
+    pendingKey = undefined;
+  };
+  template.addEventListener('change', resetKey);
+  output.addEventListener('change', resetKey);
+
+  generate.addEventListener('click', async () => {
+    generate.disabled = true;
+    pendingKey ??= newKey();
+    status.textContent = 'Starting…';
+    try {
+      const { run_id } = await attricat.operations.start({
+        operation_id: OPERATION,
+        input: { template: template.value, template_version: 1, output: output.value },
+        idempotency_key: pendingKey,
+      });
+      pendingKey = undefined;
+      follow(run_id);
+      refreshRecent();
+    } catch {
+      // Keep the key: retrying the same request returns the same run.
+      status.textContent = 'The run could not be started. Try again.';
+    } finally {
+      generate.disabled = false;
+    }
+  });
+  cancel.addEventListener('click', async () => {
+    if (!currentRun) return;
+    cancel.disabled = true;
+    try {
+      await attricat.operations.cancel({ run_id: currentRun.id });
+      poll(currentRun.id);
+    } catch {
+      status.textContent = 'The run could not be cancelled.';
+    } finally {
+      cancel.disabled = false;
+    }
+  });
+
+  body.replaceChildren(
+    el('p', { class: 'muted' },
+      `${count} ${count === 1 ? 'record' : 'records'} captured. Closing this dialog does not cancel a started run; follow it under Profile → Extension runs.`),
+    templateField,
+    outputField,
+    el('div', { class: 'row' }, generate, cancel, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Close')),
+    status,
+    downloads,
+    el('h3', {}, 'Recent runs'),
+    recent,
+  );
+  refreshRecent();
+
+  return () => {
+    disposed = true;
+    clearTimeout(timer);
+  };
+};

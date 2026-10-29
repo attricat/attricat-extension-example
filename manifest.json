@@ -1,8 +1,8 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.3.0",
-  "description": "Context-aware computed numeric attributes: a tour of the attricat:host 1.1 extension surface.",
+  "version": "0.4.0",
+  "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
   },
@@ -33,6 +33,7 @@
     "client.action_dialog",
     "client.operations.start",
     "client.operations.read",
+    "client.operations.cancel",
     "client.blueprint_configuration",
     "client.record_attribute_panel",
     "client.blueprint_detail_panel",
@@ -384,6 +385,46 @@
           "version": 1,
           "max_selection": 50
         }
+      },
+      {
+        "id": "generate-documents",
+        "handler": "generate-documents",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "template",
+            "template_version",
+            "output"
+          ],
+          "properties": {
+            "template": {
+              "type": "string",
+              "enum": [
+                "summary",
+                "label"
+              ]
+            },
+            "template_version": {
+              "type": "integer",
+              "const": 1
+            },
+            "output": {
+              "type": "string",
+              "enum": [
+                "individual",
+                "zip",
+                "combined"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "max_request_bytes": 1024,
+        "max_checkpoint_bytes": 65536,
+        "interactive": {
+          "version": 1,
+          "max_selection": 50
+        }
       }
     ]
   },
@@ -417,8 +458,8 @@
       "outlet": "record_attribute_decoration"
     },
     {
-      "id": "recalculate-formulas-action",
-      "version": 1,
+      "id": "record-actions",
+      "version": 2,
       "kind": "embedded",
       "artifact": "record-action",
       "outlet": "record_action"
@@ -431,26 +472,26 @@
       "outlet": "explorer_table_cell"
     },
     {
-      "id": "recalculate-selection-row",
+      "id": "selection-row",
       "version": 2,
       "kind": "action",
       "artifact": "selection-action",
       "outlet": "explorer_row_action"
     },
     {
-      "id": "recalculate-selection-bulk",
+      "id": "selection-bulk",
       "version": 2,
       "kind": "action",
       "artifact": "selection-action",
       "outlet": "explorer_bulk_action"
     },
     {
-      "id": "recalculate-selection-dialog",
+      "id": "selection-dialog",
       "version": 1,
       "kind": "dialog",
       "artifact": "dialog",
       "outlet": "action_dialog",
-      "title": "Recalculate formulas"
+      "title": "Formulas and documents"
     },
     {
       "id": "formula-settings",

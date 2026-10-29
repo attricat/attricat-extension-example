@@ -1,18 +1,22 @@
-/* record_action (version 1): a one-click server command for the current record
- * and context, followed by `attricat.refresh` so host views show new values. */
+/* record_action (version 2): receives the preview's one-record selection
+ * context. "Recalculate formulas" is a one-click server command followed by
+ * `attricat.refresh` so host views show new values; "Generate document…"
+ * opens the host-managed action dialog on its documents task. */
 import { command, el, mountRenderer } from './lib.js';
 
 export const mount = (root, attricat) => {
   const view = mountRenderer(root, attricat, async (context) => {
-    if (!context.record_id) return null;
-    const described = await command(attricat, 'describe-formulas', { record_id: context.record_id, context_id: null });
-    if (!described.formulas?.length) return null;
-    const button = el('button', { type: 'button', disabled: !context.context_id, title: context.context_id ? undefined : 'Select a context first' }, 'Recalculate formulas');
-    button.addEventListener('click', async () => {
-      button.disabled = true;
+    const recordId = context.record_ids?.[0];
+    if (!recordId) return null;
+    const generate = el('button', { type: 'button', class: 'secondary', onclick: () => void attricat.dialog.open() }, 'Generate document…');
+    const described = await command(attricat, 'describe-formulas', { record_id: recordId, context_id: null });
+    if (!described.formulas?.length) return el('div', { class: 'row' }, generate);
+    const recalculate = el('button', { type: 'button', disabled: !context.context_id, title: context.context_id ? undefined : 'Select a context first' }, 'Recalculate formulas');
+    recalculate.addEventListener('click', async () => {
+      recalculate.disabled = true;
       try {
         const { results } = await command(attricat, 'recalculate-formulas', {
-          record_id: context.record_id,
+          record_id: recordId,
           context_id: context.context_id,
         });
         const written = results.filter((result) => result.written).length;
@@ -21,11 +25,10 @@ export const mount = (root, attricat) => {
       } catch (error) {
         await attricat.notify({ message: error.message || 'Recalculation failed.', severity: 'error' });
       } finally {
-        button.disabled = false;
+        recalculate.disabled = false;
       }
     });
-    return button;
+    return el('div', { class: 'row' }, recalculate, generate);
   });
   return view.cleanup;
 };
-

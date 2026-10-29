@@ -11,5 +11,6 @@ crate-type = ["cdylib"]
 attricat-extension-example-formula-core = { path = "../formula-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 toml = "0.8"
 wit-bindgen = "0.57.1"

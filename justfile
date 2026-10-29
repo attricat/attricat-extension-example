@@ -17,7 +17,7 @@ fmt:
 test:
   cargo test --workspace
 
-check: fmt test check-documents
+check: fmt test
 
 # Every client contribution is bundled into one self-contained ES module per
 # manifest artifact (scripts/build-client.mjs). Attricat imports each into its
@@ -47,7 +47,7 @@ build: check build-client build-server verify-artifacts
 
 # Produce the archive accepted by Attricat's installer: the manifest at the root
 # plus exactly the files it declares (and the README and icon).
-pack: build && pack-documents
+pack: build
   #!/usr/bin/env bash
   set -euo pipefail
   rm -rf {{stage_dir}}
@@ -67,25 +67,3 @@ e2e:
 
 clean:
   rm -rf {{dist_dir}} target
-
-# The reference document extension is an operation-only attricat:host@1.1.0
-# component (selection reads, annotations, streamed artifacts).
-documents_archive := "dist/reference-documents.tar.zst"
-documents_stage := "dist/documents-package"
-
-check-documents:
-  cargo test -p attricat-reference-documents
-  cargo check --target wasm32-unknown-unknown -p attricat-reference-documents
-
-pack-documents:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  command -v wasm-tools >/dev/null || { echo "Install wasm-tools: cargo install wasm-tools --locked" >&2; exit 1; }
-  cargo build --release --target wasm32-unknown-unknown -p attricat-reference-documents
-  rm -rf {{documents_stage}}
-  mkdir -p {{documents_stage}}
-  wasm-tools component new target/wasm32-unknown-unknown/release/attricat_reference_documents.wasm -o {{documents_stage}}/server.wasm
-  cp documents/manifest.json documents/icon.svg documents/client/action.js documents/client/dialog.js {{documents_stage}}/
-  rm -f {{documents_archive}}
-  (cd {{documents_stage}} && tar -cf - manifest.json icon.svg server.wasm action.js dialog.js) | zstd -q -o {{documents_archive}}
-  echo "Created {{documents_archive}}"

@@ -5,8 +5,8 @@
 //!
 //! - `handler`: the `record.updated.v1` event handler and client commands
 //!   ([`handler`]).
-//! - `operations`: the interactive `recalculate-selection` operation
-//!   ([`operation`]).
+//! - `operations`: the interactive `recalculate-selection` ([`operation`]) and
+//!   `generate-documents` ([`documents`]) operations.
 //!
 //! Formula logic is host-independent ([`formulas`]); extension-owned state lives
 //! in `storage.extension` ([`activity`]); host calls are wrapped in [`host`].
@@ -17,6 +17,7 @@ wit_bindgen::generate!({
 });
 
 mod activity;
+mod documents;
 mod formulas;
 mod handler;
 mod host;
@@ -42,7 +43,10 @@ impl exports::attricat::host::handler::Guest for Extension {
 
 impl exports::attricat::host::operations::Guest for Extension {
     fn prepare(request: OperationRequest) -> Result<String, String> {
-        operation::prepare(request).map_err(operation::diagnostic)
+        match request.operation_id.as_str() {
+            documents::OPERATION => documents::prepare(&request),
+            _ => operation::prepare(request).map_err(operation::diagnostic),
+        }
     }
 
     fn start(_request: OperationRequest) -> Result<String, String> {
@@ -50,7 +54,10 @@ impl exports::attricat::host::operations::Guest for Extension {
     }
 
     fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
-        operation::process_batch(request).map_err(operation::diagnostic)
+        match request.operation_id.as_str() {
+            documents::OPERATION => documents::process_batch(&request),
+            _ => operation::process_batch(request).map_err(operation::diagnostic),
+        }
     }
 
     fn checkpoint(_request: OperationRequest) -> Result<(), String> {

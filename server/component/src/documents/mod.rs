@@ -1,5 +1,6 @@
-//! Reference document generator for Attricat's interactive selection
-//! operations (`attricat:host@1.1.0`, `operation-extension` world).
+//! The interactive `generate-documents` operation: one PDF per selected
+//! record, a stored ZIP of them, or one combined PDF, started from the record
+//! preview or Explorer actions through the host action dialog.
 //!
 //! Each `process-batch` performs one small step and returns a checkpoint that
 //! fully determines the next step. A replay with the same batch key therefore
@@ -7,18 +8,17 @@
 //! Rendering inputs are captured once per record and never re-read, so source
 //! edits made after capture cannot change a retried document.
 
-wit_bindgen::generate!({ path: "../server/component/wit", world: "operation-extension" });
-
 mod pdf;
 mod zip;
 
-use attricat::host::{artifacts, attricat_data, selection};
-use exports::attricat::host::operations::{BatchResult, Guest, OperationRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-const OPERATION: &str = "generate-documents";
+use crate::attricat::host::{artifacts, attricat_data, selection};
+use crate::exports::attricat::host::operations::{BatchResult, OperationRequest};
+
+pub const OPERATION: &str = "generate-documents";
 const MAX_LINES: usize = 40;
 const MAX_LINE_CHARS: usize = 120;
 const MAX_CAPTURE_BYTES: usize = 4 * 1024;
@@ -479,47 +479,22 @@ fn step(
     }
 }
 
-struct Component;
-
-impl Guest for Component {
-    fn prepare(request: OperationRequest) -> Result<String, String> {
-        if request.operation_id != OPERATION {
-            return Err("unsupported operation".into());
-        }
-        let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
-        if input.template_version != 1 {
-            return Err("unsupported template version".into());
-        }
-        Ok("validated document request".into())
+pub fn prepare(request: &OperationRequest) -> Result<String, String> {
+    let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
+    if input.template_version != 1 {
+        return Err("unsupported template version".into());
     }
-
-    fn start(_: OperationRequest) -> Result<String, String> {
-        Ok("started document generation".into())
-    }
-
-    fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
-        let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
-        let mut checkpoint: Checkpoint =
-            serde_json::from_str(&request.checkpoint).map_err(|_| "invalid checkpoint")?;
-        let done = step(&request, &input, &mut checkpoint)?;
-        Ok(BatchResult {
-            progress: progress(&checkpoint),
-            checkpoint: serde_json::to_string(&checkpoint).map_err(|_| "checkpoint")?,
-            done,
-        })
-    }
-
-    fn checkpoint(_: OperationRequest) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn finish(_: OperationRequest) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn cancel(_: OperationRequest) -> Result<(), String> {
-        Ok(())
-    }
+    Ok("validated document request".into())
 }
 
-export!(Component);
+pub fn process_batch(request: &OperationRequest) -> Result<BatchResult, String> {
+    let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
+    let mut checkpoint: Checkpoint =
+        serde_json::from_str(&request.checkpoint).map_err(|_| "invalid checkpoint")?;
+    let done = step(request, &input, &mut checkpoint)?;
+    Ok(BatchResult {
+        progress: progress(&checkpoint),
+        checkpoint: serde_json::to_string(&checkpoint).map_err(|_| "checkpoint")?,
+        done,
+    })
+}

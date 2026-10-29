@@ -2,9 +2,11 @@
 
 ## Host ABI
 
-Both extensions target the additive `attricat:host@1.1.0` ABI (`host_api`
-`>=1.1.0, <2.0.0`; WIT vendored in `server/component/wit`, which `documents/`
-also builds against). Copy WIT updates from the host's
+The extension targets the additive `attricat:host@1.1.0` ABI (`host_api`
+`>=1.1.0, <2.0.0`; WIT vendored in `server/component/wit`). It is the single
+reference extension and should showcase as much of the ABI and as many
+extension points as it reasonably can; add new surfaces here rather than in a
+separate extension. Copy WIT updates from the host's
 `crates/extension-runtime/wit-host/`; never edit the vendored file by hand.
 `just build-server` fails if the component imports anything other than
 `attricat:host@1.1.0`.

@@ -250,6 +250,24 @@ try {
     await frameWith('up to date');
   });
 
+  await step('record_action (v2) + action_dialog generate one combined PDF', async () => {
+    const action = await frameWith('Generate document…');
+    await action.getByRole('button', { name: 'Generate document…' }).click();
+    // Opened from the record preview, the dialog starts on its documents task.
+    const dialog = await frameWith('1 record captured');
+    await dialog.getByLabel('Output').selectOption('combined');
+    await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
+    await frameWith('Run Completed · 1 generated', 180_000);
+    if (!(await dialog.getByRole('button', { name: 'Download documents.pdf' }).count())) throw new Error('no documents.pdf download');
+    if (!(await dialog.getByRole('button', { name: 'Download report.json' }).count())) throw new Error('no report.json download');
+    await dialog.getByRole('button', { name: 'Close' }).click();
+  });
+
+  await step('document run annotated the record', async () => {
+    const record = await api('GET', `/records/${alpha}`);
+    if (!record.system_tags?.includes(`${EXTENSION}:document-generated`)) throw new Error(JSON.stringify(record.system_tags));
+  });
+
   await step('explorer_table_cell renders computed-number with props', async () => {
     // The host falls back to its built-in cell when a renderer frame does not
     // start within 1.5 s, which a busy dev machine can miss; reload to retry.
@@ -267,7 +285,7 @@ try {
   await step('explorer_row_action (v2) opens the dialog for one record', async () => {
     await page.getByRole('button', { name: `Record actions for ${alpha}` }).click();
     await page.getByRole('menu').getByRole('button', { name: /extension/i }).click();
-    const row = await frameWith('Recalculate formulas…');
+    const row = await frameWith('Formulas and documents…');
     await row.getByRole('button').click();
     const dialog = await frameWith('1 selected record');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
@@ -278,7 +296,7 @@ try {
     await page.getByRole('button', { name: 'Select records' }).click();
     const boxes = page.getByRole('checkbox');
     for (let index = 1; index < (await boxes.count()); index += 1) await boxes.nth(index).check();
-    const bulk = await frameWith(/Recalculate formulas \(3\)…/);
+    const bulk = await frameWith(/Formulas and documents \(3\)…/);
     await bulk.getByRole('button').click();
     const dialog = await frameWith('3 selected records');
     await dialog.getByLabel('Mode').selectOption('write');

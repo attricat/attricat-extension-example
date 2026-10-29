@@ -1,9 +1,10 @@
 # attricat-extension-example
 
 `attricat-extension-example` is the reference Attricat extension. It implements
-one feature end to end, **context-aware computed numeric attributes**, and
-uses it to show nearly every part of the extension system in a single release
-on the **`attricat:host@1.1.0`** ABI.
+two features end to end, **context-aware computed numeric attributes** and
+**PDF document generation** for a record or an Explorer selection, and uses
+them to show nearly every part of the extension system in a single release on
+the **`attricat:host@1.1.0`** ABI.
 
 ```toml
 [extensions.attricat-extension-example.formulas]
@@ -21,17 +22,18 @@ recalculated and written **in that same context**.
 | `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
 | `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
 | Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `attricat-data.batch`, annotates records, streams a CSV report | `operation.rs` |
+| Streamed output artifacts | `generate-documents` renders separate PDFs, a stored ZIP or one combined PDF across checkpointed batches, plus a `report.json` | `documents/` |
 | `scoped_configuration` | Per-attribute rounding and unit for each blueprint revision | `host.rs`, `attribute-settings.js` |
 | `storage.extension` | A per-revision formula index and an activity log, written by the server and read by clients | `activity.rs`, `client/lib.js` |
 | `event_contracts` + `events.emit` | Publishes `plugin.attricat-extension-example.formula_recalculated.v1` | `handler.rs` |
-| `attricat.annotations.write` | Tags checked records `attricat-extension-example:formulas-checked` | `operation.rs` |
+| `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata | `operation.rs`, `documents/` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
-| `record_action` (v1) | One-click recalculation followed by `attricat.refresh` | `client/record-action.js` |
+| `record_action` (v2) | One-click recalculation followed by `attricat.refresh`, and **Generate document…** opening the host dialog | `client/record-action.js` |
 | `explorer_row_action` / `explorer_bulk_action` (v2) | Selection-aware actions that open the host dialog | `client/selection-action.js` |
-| `action_dialog` | Starts and follows the run, downloads the report | `client/dialog.js` |
+| `action_dialog` | One dialog, two tasks: recalculate formulas or generate documents; starts, follows and cancels runs, lists recent runs, downloads outputs | `client/dialog*.js` |
 | `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
 | `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
 | `record_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
@@ -63,19 +65,40 @@ Writes carry the extension's provenance (`extension:attricat-extension-example`)
 ### One component, two exports
 
 `server.wasm` targets the combined `attricat-extension` world of
-`attricat:host@1.1.0` (`server/component/wit`):
+`attricat:host@1.1.0` (`server/component/wit`). An extension contributes at
+most once to each UI outlet and has one action dialog, so both interactive
+operations share the record, row and bulk actions and the dialog, which
+dispatches by task; the `operations` export dispatches by operation ID.
 
 - **`handler`**: the event handler and client commands use the typed `api`
   imports (`read`, `write`, scoped configuration) and `call` for storage,
   events and logging.
-- **`operations`**: the interactive run reads only its frozen selection
-  (values already resolved in the run's context) and writes only through
+- **`operations`**: the interactive runs read only their frozen selection
+  (values already resolved in the run's context) and write only through
   `attricat-data.batch`. Direct `api` catalog access is refused inside a run.
 
 Formula problems (an invalid expression, a non-numeric value) are recorded in
 the activity log and the event delivery succeeds; retrying cannot fix them and
 a failed delivery quarantines the extension. Host failures are returned so the
 host retries the delivery.
+
+### Documents
+
+`generate-documents` (`server/component/src/documents/`) takes a template
+(`summary` or `label`) and an output mode (separate PDFs, a stored ZIP
+archive, or one combined PDF). It reads the run's frozen selection one record
+per batch, captures each record's rendering input once (with a SHA-256
+fingerprint), renders a PDF from that capture, and checkpoints every step so a
+retried batch appends identical bytes. Successfully finalized records receive
+the `attricat-extension-example:document-generated` tag and `last_document`
+metadata in the extension's own namespace; combined outputs annotate only
+after the archive or PDF is finalized. Every run also produces a
+`report.json` with per-record results, including annotation failures.
+
+Intentional failure: the `summary` template fails a record that has no saved
+values, and the `label` template fails a record without a `title`/`name`
+string. These records are reported as failed in the run outcome and report;
+the run itself still completes.
 
 ### Shared state in extension storage
 
@@ -111,7 +134,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-tools --locked
 pnpm install
 
-just check   # fmt + Rust unit tests (formula core, server, documents)
+just check   # fmt + Rust unit tests (formula core, server, PDF and ZIP writers)
 just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
@@ -140,32 +163,3 @@ in [AGENTS.md](AGENTS.md):
 `e2e/verify.mjs` creates its own context, blueprint revision (with the formula
 table and a `computed-number` column) and records, then checks every server
 feature and every UI contribution listed above in Chromium.
-
-## Reference documents extension (`documents/`)
-
-`attricat.reference-documents` is the reference workflow for selection-aware
-extension actions and interactive operations. It is an operation-only
-`attricat:host@1.1.0` component (the `operation-extension` world, built from the
-same vendored WIT as the main extension). It adds a
-**Generate document(s)** action to the record preview, the Explorer row menu
-and the Explorer selection toolbar. Each opens the host-managed dialog, which
-captures the selection and starts the `generate-documents` operation with a
-template (`summary` or `label`) and an output mode (separate PDFs, a stored ZIP
-archive, or one combined PDF).
-
-The server component reads the run's frozen selection one record per batch,
-captures each record's rendering input once (with a SHA-256 fingerprint),
-renders a PDF from that capture, and checkpoints every step so a retried batch
-appends identical bytes. Successfully finalized records receive the
-`attricat.reference-documents:document-generated` tag and
-`last_document` metadata in the extension's own namespace; combined outputs
-annotate only after the archive or PDF is finalized. Every run also produces a
-`report.json` with per-record results, including annotation failures.
-
-Intentional failure: the `summary` template fails a record that has no saved
-values, and the `label` template fails a record without a `title`/`name`
-string. These records are reported as failed in the run outcome and report;
-the run itself still completes.
-
-`just check` tests the crate and checks it for `wasm32-unknown-unknown`;
-`just pack` also writes `dist/reference-documents.tar.zst`.

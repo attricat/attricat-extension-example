@@ -1,5 +1,5 @@
 [workspace]
-members = ["server/formula-core", "server/component", "documents"]
+members = ["server/formula-core", "server/component"]
 resolver = "2"
 
 # Smaller components compile faster in the host (Cranelift runs on first use).
