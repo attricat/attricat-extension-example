@@ -13,7 +13,7 @@ use crate::attricat::host::clock;
 use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::exports::attricat::host::command_handler::{CommandRequest, CommandResponse};
 use crate::exports::attricat::host::event_handler::Delivery;
-use crate::formulas::{self, AttributeSettings, Evaluation, FormulaConfig};
+use crate::formulas::{self, AttributeSettings, Evaluation, FormulaConfig, FormulaIndex};
 use crate::host::{self, decode, encode};
 
 #[derive(Deserialize)]
@@ -251,8 +251,15 @@ pub fn handle_command(request: CommandRequest) -> Result<CommandResponse, String
         "describe-formulas" => describe(decode(&request.payload, "describe request")?)?,
         "preview-formula" => preview(decode(&request.payload, "preview request")?)?,
         "recalculate-formulas" => {
-            recalculate_record(decode(&request.payload, "recalculate request")?)?
+            let input: RecordRequest = decode(&request.payload, "recalculate request")?;
+            let context_id = input
+                .context_id
+                .ok_or_else(|| "Select a context to recalculate.".to_owned())?;
+            encode(&json!({"results": recalculate_record(&input.record_id, &context_id)?}))?
         }
+        "recalculate-action" => recalculate_action(decode(&request.payload, "action context")?)?,
+        "check-formulas-action" => check_action(decode(&request.payload, "action context")?)?,
+        "list-formulas-action" => list_action(decode(&request.payload, "action context")?)?,
         "get-attribute-settings" | "save-attribute-settings" => {
             let input: AttributeRequest = decode(&request.payload, "settings request")?;
             if request.handler == "save-attribute-settings" {
@@ -344,11 +351,8 @@ fn preview(input: PreviewRequest) -> Result<String, String> {
     encode(&evaluation)
 }
 
-fn recalculate_record(input: RecordRequest) -> Result<String, String> {
-    let context_id = input
-        .context_id
-        .ok_or_else(|| "Select a context to recalculate.".to_owned())?;
-    let read = host::read_record(&input.record_id)?;
+fn recalculate_record(record_id: &str, context_id: &str) -> Result<Vec<Entry>, String> {
+    let read = host::read_record(record_id)?;
     let index = activity::refresh_index(&read.blueprint);
     if let Some(error) = index.error {
         return Err(error);
@@ -357,7 +361,7 @@ fn recalculate_record(input: RecordRequest) -> Result<String, String> {
     for formula in &index.formulas {
         if let Some(entry) = recalculate(
             &read.record.id,
-            &context_id,
+            context_id,
             &index.blueprint_id,
             index.blueprint_version,
             formula,
@@ -368,5 +372,107 @@ fn recalculate_record(input: RecordRequest) -> Result<String, String> {
         }
     }
     activity::record(&entries, index.formulas.len() as u64);
-    encode(&json!({"results": entries}))
+    Ok(entries)
+}
+
+/// The context the host sends with a host-rendered action: the revision, the
+/// value context and the records the action applies to. The host also sends
+/// the action and outlet, which these commands do not need.
+#[derive(Deserialize)]
+struct ActionContext {
+    blueprint_id: String,
+    blueprint_version: i64,
+    context_id: Option<String>,
+    record_ids: Vec<String>,
+}
+
+/// What the host does after an action's command: show a notification and,
+/// with `refresh`, reload the records the action applied to.
+fn action_result(message: String, severity: &str, refresh: bool) -> Result<String, String> {
+    encode(&json!({
+        "notification": {"message": message, "severity": severity},
+        "refresh": refresh,
+    }))
+}
+
+fn only_record(input: &ActionContext) -> Result<&str, String> {
+    match input.record_ids.as_slice() {
+        [record_id] => Ok(record_id),
+        _ => Err("this action applies to one record".to_owned()),
+    }
+}
+
+/// "Recalculate formulas" on a record page: writes every formula of the
+/// record's revision in the selected context.
+fn recalculate_action(input: ActionContext) -> Result<String, String> {
+    let record_id = only_record(&input)?;
+    let Some(context_id) = input.context_id.as_deref() else {
+        return action_result("Select a context to recalculate.".into(), "warning", false);
+    };
+    match recalculate_record(record_id, context_id) {
+        Ok(entries) => {
+            let written = entries.iter().filter(|entry| entry.written).count();
+            let message = if written > 0 {
+                format!("Updated {written} computed value(s).")
+            } else {
+                "Computed values are up to date.".to_owned()
+            };
+            action_result(message, "success", written > 0)
+        }
+        Err(error) => action_result(format!("Recalculation failed: {error}"), "error", false),
+    }
+}
+
+/// "Check formulas" in a record's actions menu: validates the revision's
+/// formulas, refreshing the stored index panels and runs read.
+fn check_action(input: ActionContext) -> Result<String, String> {
+    let read = host::read_record(only_record(&input)?)?;
+    let index = activity::refresh_index(&read.blueprint);
+    if let Some(error) = index.error {
+        return action_result(format!("Formulas are invalid: {error}"), "error", false);
+    }
+    let message = match index.formulas.len() {
+        0 => "This blueprint revision declares no formulas.".to_owned(),
+        count => format!(
+            "{count} valid {}: {}.",
+            if count == 1 { "formula" } else { "formulas" },
+            index
+                .formulas
+                .iter()
+                .map(|formula| formula.target_code.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    action_result(message, "info", false)
+}
+
+/// "Show formulas" in the Explorer toolbar: lists the revision's indexed
+/// formulas. It names no rows, so it reads only the stored index.
+fn list_action(input: ActionContext) -> Result<String, String> {
+    let key = FormulaIndex::key(&input.blueprint_id, input.blueprint_version);
+    let index = host::storage_get::<FormulaIndex>(&key)?.map(|(index, _)| index);
+    let (message, severity) = match index {
+        None => (
+            "No formulas indexed yet; open a record of this revision first.".to_owned(),
+            "warning",
+        ),
+        Some(FormulaIndex {
+            error: Some(error), ..
+        }) => (format!("Formulas are invalid: {error}"), "error"),
+        Some(index) if index.formulas.is_empty() => (
+            "This blueprint revision declares no formulas.".to_owned(),
+            "info",
+        ),
+        Some(index) => (
+            index
+                .formulas
+                .iter()
+                .map(|formula| format!("{} = {}", formula.target_code, formula.expression))
+                .collect::<Vec<_>>()
+                .join(" · "),
+            "info",
+        ),
+    };
+    action_result(message, severity, false)
 }

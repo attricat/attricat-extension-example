@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -62,24 +62,19 @@
       "path": "dist/inspector.js"
     },
     {
+      "id": "recalculate-dialog",
+      "kind": "client_component",
+      "path": "dist/recalculate-dialog.js"
+    },
+    {
+      "id": "documents-dialog",
+      "kind": "client_component",
+      "path": "dist/documents-dialog.js"
+    },
+    {
       "id": "decoration",
       "kind": "client_component",
       "path": "dist/decoration.js"
-    },
-    {
-      "id": "record-action",
-      "kind": "client_component",
-      "path": "dist/record-action.js"
-    },
-    {
-      "id": "selection-action",
-      "kind": "client_component",
-      "path": "dist/selection-action.js"
-    },
-    {
-      "id": "dialog",
-      "kind": "client_component",
-      "path": "dist/dialog.js"
     },
     {
       "id": "table-cell",
@@ -105,16 +100,6 @@
       "id": "health-card",
       "kind": "client_component",
       "path": "dist/health-card.js"
-    },
-    {
-      "id": "header-action",
-      "kind": "client_component",
-      "path": "dist/header-action.js"
-    },
-    {
-      "id": "explorer-action",
-      "kind": "client_component",
-      "path": "dist/explorer-action.js"
     },
     {
       "id": "blueprint-summary",
@@ -492,6 +477,237 @@
         "response_schema": {
           "type": "object"
         }
+      },
+      {
+        "id": "recalculate-action",
+        "handler": "recalculate-action",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action_id",
+            "blueprint_id",
+            "blueprint_version",
+            "context_id",
+            "record_ids"
+          ],
+          "properties": {
+            "action_id": {
+              "type": "string"
+            },
+            "outlet": {
+              "type": "string"
+            },
+            "context_version": {
+              "type": "integer"
+            },
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "context_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36
+              },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "notification",
+            "refresh"
+          ],
+          "properties": {
+            "notification": {
+              "type": "object",
+              "required": [
+                "message",
+                "severity"
+              ],
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                }
+              }
+            },
+            "refresh": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      {
+        "id": "check-formulas-action",
+        "handler": "check-formulas-action",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action_id",
+            "blueprint_id",
+            "blueprint_version",
+            "context_id",
+            "record_ids"
+          ],
+          "properties": {
+            "action_id": {
+              "type": "string"
+            },
+            "outlet": {
+              "type": "string"
+            },
+            "context_version": {
+              "type": "integer"
+            },
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "context_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36
+              },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "notification",
+            "refresh"
+          ],
+          "properties": {
+            "notification": {
+              "type": "object",
+              "required": [
+                "message",
+                "severity"
+              ],
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                }
+              }
+            },
+            "refresh": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      {
+        "id": "list-formulas-action",
+        "handler": "list-formulas-action",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action_id",
+            "blueprint_id",
+            "blueprint_version",
+            "context_id",
+            "record_ids"
+          ],
+          "properties": {
+            "action_id": {
+              "type": "string"
+            },
+            "outlet": {
+              "type": "string"
+            },
+            "context_version": {
+              "type": "integer"
+            },
+            "blueprint_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "blueprint_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "context_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "record_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36
+              },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        },
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "notification",
+            "refresh"
+          ],
+          "properties": {
+            "notification": {
+              "type": "object",
+              "required": [
+                "message",
+                "severity"
+              ],
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                }
+              }
+            },
+            "refresh": {
+              "type": "boolean"
+            }
+          }
+        }
       }
     ],
     "operations": [
@@ -604,11 +820,100 @@
       "outlet": "record_attribute_decoration"
     },
     {
-      "id": "record-actions",
-      "version": 2,
-      "kind": "embedded",
-      "artifact": "record-action",
-      "outlet": "record_action"
+      "id": "recalculate-dialog",
+      "version": 1,
+      "kind": "dialog",
+      "artifact": "recalculate-dialog",
+      "outlet": "action_dialog",
+      "title": "Recalculate formulas"
+    },
+    {
+      "id": "documents-dialog",
+      "version": 1,
+      "kind": "dialog",
+      "artifact": "documents-dialog",
+      "outlet": "action_dialog",
+      "title": "Generate documents"
+    },
+    {
+      "id": "recalculate-record",
+      "version": 1,
+      "kind": "action",
+      "outlet": "record_action",
+      "title": "Recalculate formulas",
+      "invoke": {
+        "command": "recalculate-action"
+      }
+    },
+    {
+      "id": "generate-record-document",
+      "version": 1,
+      "kind": "action",
+      "outlet": "record_action",
+      "title": "Generate document…",
+      "invoke": {
+        "dialog": "documents-dialog"
+      }
+    },
+    {
+      "id": "check-formulas",
+      "version": 1,
+      "kind": "action",
+      "outlet": "record_header_action",
+      "title": "Check formulas",
+      "invoke": {
+        "command": "check-formulas-action"
+      }
+    },
+    {
+      "id": "show-formulas",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_action",
+      "title": "Show formulas",
+      "invoke": {
+        "command": "list-formulas-action"
+      }
+    },
+    {
+      "id": "recalculate-row",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_row_action",
+      "title": "Recalculate formulas…",
+      "invoke": {
+        "dialog": "recalculate-dialog"
+      }
+    },
+    {
+      "id": "generate-row-document",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_row_action",
+      "title": "Generate document…",
+      "invoke": {
+        "dialog": "documents-dialog"
+      }
+    },
+    {
+      "id": "recalculate-selection-action",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_bulk_action",
+      "title": "Recalculate formulas…",
+      "invoke": {
+        "dialog": "recalculate-dialog"
+      }
+    },
+    {
+      "id": "generate-selection-documents",
+      "version": 1,
+      "kind": "action",
+      "outlet": "explorer_bulk_action",
+      "title": "Generate documents…",
+      "invoke": {
+        "dialog": "documents-dialog"
+      }
     },
     {
       "id": "attricat-extension-example.computed-number",
@@ -616,28 +921,6 @@
       "kind": "embedded",
       "artifact": "table-cell",
       "outlet": "explorer_table_cell"
-    },
-    {
-      "id": "selection-row",
-      "version": 2,
-      "kind": "action",
-      "artifact": "selection-action",
-      "outlet": "explorer_row_action"
-    },
-    {
-      "id": "selection-bulk",
-      "version": 2,
-      "kind": "action",
-      "artifact": "selection-action",
-      "outlet": "explorer_bulk_action"
-    },
-    {
-      "id": "selection-dialog",
-      "version": 1,
-      "kind": "dialog",
-      "artifact": "dialog",
-      "outlet": "action_dialog",
-      "title": "Formulas and documents"
     },
     {
       "id": "formula-settings",
@@ -666,20 +949,6 @@
       "kind": "panel",
       "artifact": "health-card",
       "outlet": "data_health_card"
-    },
-    {
-      "id": "formula-header-action",
-      "version": 1,
-      "kind": "action",
-      "artifact": "header-action",
-      "outlet": "record_header_action"
-    },
-    {
-      "id": "formula-explorer-action",
-      "version": 1,
-      "kind": "action",
-      "artifact": "explorer-action",
-      "outlet": "explorer_action"
     },
     {
       "id": "formula-blueprint-summary",

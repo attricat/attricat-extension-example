@@ -228,18 +228,6 @@ const frameWith = async (text, timeout = 90_000, target = page) => {
   throw new Error(`no extension frame contains ${text}`);
 };
 
-// Hosts that group Explorer extension contributions in a popover reveal a
-// trigger once a frame renders; its frame stays mounted, so open the trigger
-// when it exists (older hosts mount the frames inline) and act in the frame.
-const openIfPresent = async (trigger) => {
-  try {
-    await trigger.waitFor({ timeout: 15_000 });
-  } catch {
-    return;
-  }
-  await trigger.click();
-};
-
 const step = async (label, run) => {
   try {
     await run();
@@ -346,13 +334,10 @@ try {
     await frameWith('up to date');
   });
 
-  await step('record_action (v2) + action_dialog generate one combined PDF', async () => {
-    // Record actions sit at the end of the Data tab.
-    const dataTab = page.getByRole('tab', { name: 'Data', exact: true });
-    if (await dataTab.count()) await dataTab.click();
-    const action = await frameWith('Generate document…');
-    await action.getByRole('button', { name: 'Generate document…' }).click();
-    // Opened from the record preview, the dialog starts on its documents task.
+  await step('record_action + action_dialog generate one combined PDF', async () => {
+    // Record actions are host-rendered buttons at the end of the Data tab.
+    await page.getByRole('tab', { name: 'Data', exact: true }).click();
+    await page.getByRole('button', { name: 'Generate document…' }).click();
     const dialog = await frameWith('Price sheet (v2)');
     await dialog.getByLabel('Template').selectOption('price-sheet');
     await dialog.getByLabel('Output').selectOption('combined');
@@ -386,10 +371,8 @@ try {
   await step('a template whose marks all resolve completes its run', async () => {
     // No result field is left empty here, so the run must still read back its
     // own checkpoint through to the report batch.
-    const dataTab = page.getByRole('tab', { name: 'Data', exact: true });
-    if (await dataTab.count()) await dataTab.click();
-    const action = await frameWith('Generate document…');
-    await action.getByRole('button', { name: 'Generate document…' }).click();
+    await page.getByRole('tab', { name: 'Data', exact: true }).click();
+    await page.getByRole('button', { name: 'Generate document…' }).click();
     const dialog = await frameWith(/Product label \(v\d+\)/);
     await dialog.getByLabel('Template').selectOption('label');
     await dialog.getByLabel('Output').selectOption('individual');
@@ -402,17 +385,17 @@ try {
     if (last?.template !== 'label') throw new Error(JSON.stringify(last));
   });
 
+  await step('record_action recalculates through its server command', async () => {
+    await page.getByRole('tab', { name: 'Data', exact: true }).click();
+    await page.getByRole('button', { name: 'Recalculate formulas', exact: true }).click();
+    // The host shows the command's notification.
+    await page.getByText(/Computed values are up to date\.|Updated \d+ computed value\(s\)\./).first().waitFor({ timeout: 90_000 });
+  });
+
   await step('record_header_action checks the formulas', async () => {
-    const header = await frameWith('Check formulas');
-    // Newer hosts offer header actions in the record's Actions menu, under a
-    // "More actions…" item; older ones mount them beside the toolbar.
-    const actions = page.getByRole('navigation', { name: 'Record' }).getByRole('button', { name: 'Actions', exact: true });
-    // Visibility inside the frame says nothing about the host popover around it.
-    if (!(await page.locator('iframe[title="formula-header-action"]').isVisible())) {
-      await actions.click();
-      await openIfPresent(page.getByRole('menu').getByRole('menuitem', { name: 'More actions…' }));
-    }
-    await header.getByRole('button', { name: 'Check formulas' }).click();
+    // Header actions are items of the record's Actions menu.
+    await page.getByRole('navigation', { name: 'Record' }).getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Check formulas' }).click();
     await page.getByText('2 valid formulas: price_gross, price_deposit.').waitFor({ timeout: 30_000 });
   });
 
@@ -451,44 +434,29 @@ try {
   });
 
   await step('explorer_action lists the revision formulas', async () => {
-    const toolbar = await frameWith('ƒ 2 formulas');
-    await openIfPresent(page.getByRole('button', { name: 'Extension actions', exact: true }));
-    await toolbar.getByRole('button', { name: 'ƒ 2 formulas' }).click();
+    // Toolbar actions sit behind one host-owned button.
+    await page.getByRole('button', { name: 'Extension actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Show formulas' }).click();
     await page.getByText(/price_gross = price_net \* \(1 \+ vat_rate\) · price_deposit = price_gross \* 0\.2/).waitFor({ timeout: 30_000 });
-    // Close the toolbar popover, if any, by clicking its backdrop; keys
-    // pressed in the focused frame never reach the host.
-    if (await page.getByRole('presentation').count()) await page.mouse.click(5, 5);
   });
 
-  await step('explorer_row_action (v2) opens the dialog for one record', async () => {
+  await step('explorer_row_action opens the recalculation dialog for one record', async () => {
     await page.getByRole('button', { name: `Record actions for ${alpha}` }).click();
-    // The row menu mounts its extension frames when it opens. Newer hosts then
-    // show a "More actions…" item; older ones an extension button.
-    const menu = page.getByRole('menu');
-    const more = menu.getByRole('menuitem', { name: 'More actions…' }).or(menu.getByRole('button', { name: /extension/i }));
-    await more.first().click({ timeout: 30_000 });
-    const row = await frameWith('Formulas and documents…');
-    await row.getByRole('button').click();
-    const dialog = await frameWith('1 selected record');
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Recalculate formulas…' }).click();
+    await frameWith('1 selected record');
     // The host dialog owns the close control; the frame renders none.
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('dialog').waitFor({ state: 'detached' });
   });
 
-  await step('explorer_bulk_action (v2) + action_dialog run the interactive operation', async () => {
+  await step('explorer_bulk_action + action_dialog run the interactive operation', async () => {
     await page.goto(`${WEB}/?blueprint=${blueprintCode}&version=${blueprint.version}&context=${context.code}`);
     await page.getByRole('button', { name: 'Select records' }).click();
     const boxes = page.getByRole('checkbox');
     for (let index = 1; index < (await boxes.count()); index += 1) await boxes.nth(index).check();
-    // Newer hosts put bulk actions in the selection's Actions menu, which
-    // mounts the frame when it opens; older hosts mount it below the toolbar.
-    const actions = page.getByRole('button', { name: 'Actions', exact: true });
-    if (await actions.count()) {
-      await actions.click();
-      await openIfPresent(page.getByRole('menu').getByRole('menuitem', { name: 'More actions…' }));
-    }
-    const bulk = await frameWith(/Formulas and documents \(3\)…/);
-    await bulk.getByRole('button').click();
+    // Bulk actions are items of the selection's Actions menu.
+    await page.getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Recalculate formulas…' }).click();
     const dialog = await frameWith('3 selected records');
     await dialog.getByLabel('Mode').selectOption('write');
     await dialog.getByRole('button', { name: 'Start' }).click();

@@ -1,4 +1,4 @@
-/* The dialog's "Generate documents" task: starts the interactive
+/* The "Generate documents" dialog's task: starts the interactive
  * `generate-documents` operation (separate PDFs, a ZIP archive or one combined
  * PDF), follows the run and offers its downloads. The host dialog provides
  * the close control; closing never cancels a started run, which stays listed

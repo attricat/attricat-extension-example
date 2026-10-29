@@ -1,4 +1,4 @@
-/* The dialog's "Recalculate formulas" task: starts the interactive
+/* The "Recalculate formulas" dialog's task: starts the interactive
  * `recalculate-selection` operation for the captured selection, follows the
  * run, and downloads its CSV report. */
 import { command, el, loadFormulaIndex } from './lib.js';
