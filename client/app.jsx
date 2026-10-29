@@ -6,9 +6,10 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import { command, formatNumber, installStyles, shortId } from './lib.js';
 
 const FEATURES = [
-  ['Event handler', 'record.updated.v1 recalculates formulas in the context that changed', 'server.event_handlers'],
+  ['Event handler (1.1)', 'record.updated.v1 recalculates formulas, chains included, in the context that changed; skips its own writes by delivery source; rejects invalid formulas, retries host failures', 'server.event_handlers · event-handler · outcomes'],
+  ['Clock', 'activity entries are timestamped with the host clock', 'clock'],
   ['Commands', 'describe, preview, recalculate, attribute settings, activity', 'server.commands · client.commands'],
-  ['Interactive operation', 'recalculate a selection, write or report, CSV output, annotations', 'server.operations · selection · attricat-data · artifacts'],
+  ['Interactive operation', 'recalculate a selection, write or report, CSV output, annotations; typed batch failures', 'server.operations · deferrable-operations · selection · attricat-data · artifacts'],
   ['Document generation', 'separate PDFs, a ZIP or one combined PDF streamed across checkpointed batches, with a JSON report', 'server.operations · artifacts · annotations · operations.cancel'],
   ['Scoped configuration', 'per-attribute rounding and unit for each blueprint revision', 'scoped_configuration'],
   ['Extension storage', 'formula index and activity log shared by server and panels', 'storage.extension'],
@@ -21,6 +22,9 @@ const FEATURES = [
   ['Table cell renderer', 'computed-number with precision/unit props', 'explorer_table_cell · cell_renderers'],
   ['Attribute settings', 'rounding/unit editor in the blueprint editor', 'blueprint_attribute_configuration'],
   ['Read-only panels', 'attribute inputs, blueprint formulas, health counters', 'record_attribute_panel · blueprint_detail_panel · data_health_card'],
+  ['Header and toolbar actions', 'check a record\'s formulas from its header; list a revision\'s formulas from the Explorer toolbar', 'record_header_action · explorer_action'],
+  ['Blueprint panels', 'formula dependency summary beside the revision; publish-time reminder of the formulas to expect', 'blueprint_panel · blueprint_publish_check'],
+  ['File and audit panels', 'record annotations beneath file links; formula activity beside audit events', 'file_panel · audit_event_panel · attricat.request'],
 ];
 
 const Overview = () => (
@@ -77,11 +81,12 @@ const Activity = ({ attricat }) => {
       ) : (
         <table>
           <thead>
-            <tr><th>Source</th><th>Record</th><th>Target</th><th>Context</th><th>Result</th></tr>
+            <tr><th>When</th><th>Source</th><th>Record</th><th>Target</th><th>Context</th><th>Result</th></tr>
           </thead>
           <tbody>
             {entries.map((entry, index) => (
               <tr key={index}>
+                <td>{entry.at ? new Date(entry.at * 1000).toLocaleTimeString() : '—'}</td>
                 <td>{entry.source}</td>
                 <td>
                   {entry.record_id ? (

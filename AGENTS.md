@@ -6,8 +6,10 @@ The extension targets the additive `attricat:host@1.1.0` ABI (`host_api`
 `>=1.1.0, <2.0.0`; WIT vendored in `server/component/wit`). It is the single
 reference extension and should showcase as much of the ABI and as many
 extension points as it reasonably can; add new surfaces here rather than in a
-separate extension. Copy WIT updates from the host's
-`crates/extension-runtime/wit-host/`; never edit the vendored file by hand.
+separate extension. The component targets the `outcome-extension` world
+(1.1 `event-handler`, `command-handler` and `deferrable-operations`). Copy WIT
+updates from the host's `crates/extension-runtime/wit-host/`; never edit the
+vendored file by hand.
 `just build-server` fails if the component imports anything other than
 `attricat:host@1.1.0`.
 
@@ -26,8 +28,10 @@ not sufficient to validate host integration.
    the release. Repeat after each new side-loaded release; upgrades and
    replacements clear grants, and removal clears scoped configuration.
 4. Run `just e2e` with `ATTRICAT_WEB_URL` and `ATTRICAT_SESSION_FILE` (an
-   authenticated `acli --session-file`). It drives the API and the UI with
-   Playwright and must report `All checks passed`. Extend `e2e/verify.mjs`
+   authenticated `acli --session-file`). The `file_panel` check signs in as
+   the server's sample viewer (`/api/auth/sample-logins`), because the host
+   shows file panels only beneath read-only file values. It drives the API and
+   the UI with Playwright and must report `All checks passed`. Extend `e2e/verify.mjs`
    whenever you add or change a contribution, command, or operation.
 5. The suite publishes a blueprint revision with:
 

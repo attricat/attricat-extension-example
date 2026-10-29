@@ -99,8 +99,17 @@ value_type = "number"
 code = "price_gross"
 value_type = "number"
 
+[[attributes]]
+code = "price_deposit"
+value_type = "number"
+
+[[attributes]]
+code = "datasheet"
+value_type = "file"
+
 [extensions.${EXTENSION}.formulas]
 price_gross = "price_net * (1 + vat_rate)"
+price_deposit = "price_gross * 0.2"
 `;
 
 const installation = (await api('GET', `/extensions/${EXTENSION}`)).installation;
@@ -119,6 +128,7 @@ const blueprint = created.blueprint ?? created;
 await api('POST', `/blueprints/${blueprint.id}/versions/${blueprint.version}/publish`);
 const revision = await api('GET', `/blueprints/${blueprint.id}/versions/${blueprint.version}`);
 const gross = revision.attributes.find((attribute) => attribute.code === 'price_gross');
+const deposit = revision.attributes.find((attribute) => attribute.code === 'price_deposit');
 const records = [];
 for (const title of ['Alpha', 'Beta', 'Gamma']) {
   records.push(
@@ -129,6 +139,20 @@ for (const title of ['Alpha', 'Beta', 'Gamma']) {
   );
 }
 const [alpha, beta, gamma] = records;
+// A datasheet file on Alpha, beneath which the file_panel contribution mounts.
+{
+  const form = new FormData();
+  form.append('file', new Blob(['Alpha datasheet\n'], { type: 'text/plain' }), 'alpha-datasheet.txt');
+  const response = await fetch(`${WEB}/api/records/${alpha}/file-attributes/datasheet/uploads`, {
+    method: 'POST',
+    headers: {
+      cookie: `attricat_session=${session.session}; attricat_csrf=${session.csrf}`,
+      'x-attricat-csrf': session.csrf,
+    },
+    body: form,
+  });
+  if (!response.ok) throw new Error(`datasheet upload → ${response.status} ${(await response.text()).slice(0, 300)}`);
+}
 console.log(`fixtures: context ${context.code}, blueprint ${blueprintCode}, records ${records.join(' ')}`);
 
 // ------------------------------------------------------------- server side --
@@ -141,14 +165,19 @@ check('scoped configuration saved through a command', settings.settings?.precisi
 
 const update = (recordId, values) =>
   api('PUT', `/v1/records/${recordId}`, { values, relationships: [], remove_values: [] });
-const grossIn = async (recordId, contextId) => {
+const valueIn = async (attribute, recordId, contextId) => {
   const values = await api('GET', `/records/${recordId}/values/current`);
-  return values.find((value) => value.attribute_id === gross.id && value.context_id === contextId)?.value;
+  return values.find((value) => value.attribute_id === attribute.id && value.context_id === contextId)?.value;
 };
+const grossIn = (recordId, contextId) => valueIn(gross, recordId, contextId);
 
 await update(alpha, [scalar('price_net', 99.99, context.id), scalar('vat_rate', 0.23, context.id)]);
 const alphaGross = await poll('alpha price_gross', () => grossIn(alpha, context.id), (value) => value !== undefined);
 check('event handler writes the target in the non-default context, rounded', alphaGross === 122.99, alphaGross);
+// The handler skips the events its own writes cause (1.1 delivery source), so
+// a chained formula must be completed within the same delivery.
+const alphaDeposit = await poll('alpha price_deposit', () => valueIn(deposit, alpha, context.id), (value) => value !== undefined);
+check('event handler completes a chained formula in the same delivery', Math.abs(alphaDeposit - 24.598) < 1e-9, alphaDeposit);
 await update(beta, [scalar('price_net', 10, context.id), scalar('vat_rate', 0.5, context.id)]);
 await update(gamma, [scalar('price_net', 50, defaultContext.id), scalar('vat_rate', 0.1, defaultContext.id)]);
 check('event handler writes the default context too', (await poll('gamma price_gross', () => grossIn(gamma, defaultContext.id), (value) => value !== undefined)) === 55);
@@ -170,11 +199,11 @@ const page = await (async () => {
   return browserContext.newPage();
 })();
 
-const frameWith = async (text, timeout = 90_000) => {
+const frameWith = async (text, timeout = 90_000, target = page) => {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    for (const frame of page.frames()) {
-      if (frame === page.mainFrame()) continue;
+    for (const frame of target.frames()) {
+      if (frame === target.mainFrame()) continue;
       try {
         const body = await frame.locator('body').innerText({ timeout: 500 });
         if (typeof text === 'string' ? body.includes(text) : text.test(body)) return frame;
@@ -182,7 +211,7 @@ const frameWith = async (text, timeout = 90_000) => {
         // Frames come and go while the host mounts contributions.
       }
     }
-    await page.waitForTimeout(500);
+    await target.waitForTimeout(500);
   }
   throw new Error(`no extension frame contains ${text}`);
 };
@@ -209,6 +238,10 @@ try {
   await step('blueprint_detail_panel lists the validated formula', async () => {
     await page.goto(`${WEB}/manage/blueprints/${blueprint.id}`);
     await frameWith('price_net, vat_rate');
+  });
+
+  await step('blueprint_panel summarizes dependencies and marks the chain', async () => {
+    await frameWith(/price_deposit ← price_gross\s*chained/);
   });
 
   await step('blueprint_attribute_configuration edits rounding', async () => {
@@ -268,6 +301,32 @@ try {
     if (!record.system_tags?.includes(`${EXTENSION}:document-generated`)) throw new Error(JSON.stringify(record.system_tags));
   });
 
+  await step('record_header_action checks the formulas', async () => {
+    const header = await frameWith('Check formulas');
+    await header.getByRole('button', { name: 'Check formulas' }).click();
+    await page.getByText('2 valid formulas: price_gross, price_deposit.').waitFor({ timeout: 30_000 });
+  });
+
+  await step('file_panel shows the last generated document', async () => {
+    // The host renders file panels beneath read-only file values only; a
+    // writer sees the file editor instead, so check as the sample viewer.
+    const viewerContext = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
+    try {
+      const samples = await (await viewerContext.request.get(`${WEB}/api/auth/sample-logins`)).json();
+      const viewer = samples.accounts?.find((account) => account.role === 'viewer');
+      if (!viewer) throw new Error('no sample viewer login on this server');
+      const login = await viewerContext.request.post(`${WEB}/api/auth/login`, {
+        data: { login_identifier: samples.login_identifier, email: viewer.email, password: samples.password },
+      });
+      if (!login.ok()) throw new Error(`viewer login → ${login.status()}`);
+      const viewerPage = await viewerContext.newPage();
+      await viewerPage.goto(`${WEB}/records/${alpha}`);
+      await frameWith('Last document: summary template, combined PDF', 90_000, viewerPage);
+    } finally {
+      await viewerContext.close();
+    }
+  });
+
   await step('explorer_table_cell renders computed-number with props', async () => {
     // The host falls back to its built-in cell when a renderer frame does not
     // start within 1.5 s, which a busy dev machine can miss; reload to retry.
@@ -280,6 +339,12 @@ try {
         if (attempt === 3) throw error;
       }
     }
+  });
+
+  await step('explorer_action lists the revision formulas', async () => {
+    const toolbar = await frameWith('ƒ 2 formulas');
+    await toolbar.getByRole('button', { name: 'ƒ 2 formulas' }).click();
+    await page.getByText(/price_gross = price_net \* \(1 \+ vat_rate\) · price_deposit = price_gross \* 0\.2/).waitFor({ timeout: 30_000 });
   });
 
   await step('explorer_row_action (v2) opens the dialog for one record', async () => {
@@ -308,6 +373,22 @@ try {
   await step('interactive run annotated the selection', async () => {
     const record = await api('GET', `/records/${beta}`);
     if (!record.system_tags?.includes(`${EXTENSION}:formulas-checked`)) throw new Error(JSON.stringify(record.system_tags));
+  });
+
+  await step('blueprint_publish_check shows the formulas to expect', async () => {
+    await api('POST', `/blueprints/${blueprint.id}/versions`, {
+      definition: `${definition}\n[[attributes]]\ncode = "note"\nvalue_type = "string"\n`,
+    });
+    await page.goto(`${WEB}/manage/blueprints/${blueprint.id}`);
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await frameWith(`Revision ${blueprint.version} computes:`);
+    await page.keyboard.press('Escape');
+  });
+
+  await step('audit_event_panel shows formula activity in the event drawer', async () => {
+    await page.goto(`${WEB}/manage/audit-log`);
+    await page.getByRole('button', { name: /^View details for / }).first().click();
+    await frameWith('Formula activity');
   });
 
   await step('theme: frames follow dark mode', async () => {

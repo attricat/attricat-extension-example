@@ -181,7 +181,29 @@ fn normalize_formulas(mut formulas: Vec<FormulaConfig>) -> Result<Vec<FormulaCon
     }
     reject_cycles(&formulas)?;
     formulas.sort_by(|left, right| left.target_code.cmp(&right.target_code));
-    Ok(formulas)
+    Ok(dependency_order(formulas))
+}
+
+/// Orders formulas so each comes after the formulas computing its inputs
+/// (ties by target code). Evaluating in this order completes a chain such as
+/// `gross = net * 2`, `deposit = gross / 10` in one pass, so the handler can
+/// skip the events its own writes cause. Requires acyclic formulas.
+fn dependency_order(mut pending: Vec<FormulaConfig>) -> Vec<FormulaConfig> {
+    let mut ordered: Vec<FormulaConfig> = Vec::with_capacity(pending.len());
+    while !pending.is_empty() {
+        let ready = pending
+            .iter()
+            .position(|formula| {
+                formula.dependencies.iter().all(|dependency| {
+                    !pending
+                        .iter()
+                        .any(|other| other.target_attribute_id == *dependency)
+                })
+            })
+            .expect("acyclic formulas always have a ready formula");
+        ordered.push(pending.remove(ready));
+    }
+    ordered
 }
 
 fn reject_cycles(formulas: &[FormulaConfig]) -> Result<(), String> {
@@ -324,6 +346,7 @@ mod tests {
                 attribute("net-id", "net", "number"),
                 attribute("vat-id", "vat", "number"),
                 attribute("title-id", "title", "string"),
+                attribute("deposit-id", "a_deposit", "number"),
             ],
         }
     }
@@ -339,6 +362,19 @@ mod tests {
         assert_eq!(formulas[0].target_code, "gross");
         assert_eq!(formulas[0].dependencies, ["net-id", "vat-id"]);
         assert_eq!(formulas[0].dependency_codes, ["net", "vat"]);
+    }
+
+    #[test]
+    fn chained_formulas_follow_their_inputs() {
+        let formulas = load_formulas(&blueprint(
+            "[extensions.attricat-extension-example.formulas]\na_deposit = \"gross / 10\"\ngross = \"net * 2\"\n",
+        ))
+        .unwrap();
+        let order: Vec<_> = formulas
+            .iter()
+            .map(|formula| formula.target_code.as_str())
+            .collect();
+        assert_eq!(order, ["gross", "a_deposit"]);
     }
 
     #[test]

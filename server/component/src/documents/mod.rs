@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::attricat::host::{artifacts, attricat_data, selection};
-use crate::exports::attricat::host::operations::{BatchResult, OperationRequest};
+use crate::exports::attricat::host::deferrable_operations::{BatchOutcome, OperationRequest};
 
 pub const OPERATION: &str = "generate-documents";
 const MAX_LINES: usize = 40;
@@ -487,14 +488,27 @@ pub fn prepare(request: &OperationRequest) -> Result<String, String> {
     Ok("validated document request".into())
 }
 
-pub fn process_batch(request: &OperationRequest) -> Result<BatchResult, String> {
-    let input: Input = serde_json::from_str(&request.input).map_err(|_| "invalid input")?;
-    let mut checkpoint: Checkpoint =
-        serde_json::from_str(&request.checkpoint).map_err(|_| "invalid checkpoint")?;
+/// An unreadable input or checkpoint cannot succeed on retry, so it is
+/// rejected (the run dead-letters); host call failures are retried.
+pub fn process_batch(request: &OperationRequest) -> Result<BatchOutcome, Failure> {
+    let rejected = |code: &str, message: &str| {
+        Failure::Rejected(Rejection {
+            code: code.into(),
+            message: message.into(),
+            record_id: None,
+            connection: None,
+        })
+    };
+    let input: Input = serde_json::from_str(&request.input)
+        .map_err(|_| rejected("invalid_input", "invalid input"))?;
+    let mut checkpoint: Checkpoint = serde_json::from_str(&request.checkpoint)
+        .map_err(|_| rejected("invalid_checkpoint", "invalid checkpoint"))?;
     let done = step(request, &input, &mut checkpoint)?;
-    Ok(BatchResult {
+    Ok(BatchOutcome {
         progress: progress(&checkpoint),
-        checkpoint: serde_json::to_string(&checkpoint).map_err(|_| "checkpoint")?,
+        checkpoint: serde_json::to_string(&checkpoint)
+            .map_err(|_| rejected("invalid_checkpoint", "checkpoint"))?,
         done,
+        resume_after_ms: None,
     })
 }

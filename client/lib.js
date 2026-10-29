@@ -26,6 +26,16 @@ export const formulaIndexKey = (blueprintId, blueprintVersion) =>
 export const loadFormulaIndex = (attricat, blueprintId, blueprintVersion) =>
   storageGet(attricat, formulaIndexKey(blueprintId, blueprintVersion));
 
+/* The index of this revision or, when it has none yet (a draft has no
+ * records), of the closest earlier indexed revision: `{ index, version }`. */
+export const loadClosestFormulaIndex = async (attricat, blueprintId, blueprintVersion, lookback = 5) => {
+  for (let version = blueprintVersion; version >= Math.max(1, blueprintVersion - lookback); version -= 1) {
+    const index = await loadFormulaIndex(attricat, blueprintId, version);
+    if (index) return { index, version };
+  }
+  return { index: null, version: null };
+};
+
 export const formatNumber = (value, settings = {}) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   const precision = Number.isInteger(settings.precision) ? settings.precision : undefined;

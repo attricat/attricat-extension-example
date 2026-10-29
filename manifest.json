@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -37,7 +37,13 @@
     "client.blueprint_configuration",
     "client.record_attribute_panel",
     "client.blueprint_detail_panel",
-    "client.data_health_card"
+    "client.data_health_card",
+    "client.record_header_action",
+    "client.explorer_action",
+    "client.blueprint_panel",
+    "client.blueprint_publish_check",
+    "client.file_panel",
+    "client.audit_event_panel"
   ],
   "artifacts": [
     {
@@ -99,6 +105,36 @@
       "id": "health-card",
       "kind": "client_component",
       "path": "dist/health-card.js"
+    },
+    {
+      "id": "header-action",
+      "kind": "client_component",
+      "path": "dist/header-action.js"
+    },
+    {
+      "id": "explorer-action",
+      "kind": "client_component",
+      "path": "dist/explorer-action.js"
+    },
+    {
+      "id": "blueprint-summary",
+      "kind": "client_component",
+      "path": "dist/blueprint-summary.js"
+    },
+    {
+      "id": "publish-check",
+      "kind": "client_component",
+      "path": "dist/publish-check.js"
+    },
+    {
+      "id": "file-panel",
+      "kind": "client_component",
+      "path": "dist/file-panel.js"
+    },
+    {
+      "id": "audit-panel",
+      "kind": "client_component",
+      "path": "dist/audit-panel.js"
     }
   ],
   "configuration": {
@@ -520,6 +556,48 @@
       "kind": "panel",
       "artifact": "health-card",
       "outlet": "data_health_card"
+    },
+    {
+      "id": "formula-header-action",
+      "version": 1,
+      "kind": "action",
+      "artifact": "header-action",
+      "outlet": "record_header_action"
+    },
+    {
+      "id": "formula-explorer-action",
+      "version": 1,
+      "kind": "action",
+      "artifact": "explorer-action",
+      "outlet": "explorer_action"
+    },
+    {
+      "id": "formula-blueprint-summary",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "blueprint-summary",
+      "outlet": "blueprint_panel"
+    },
+    {
+      "id": "formula-publish-check",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "publish-check",
+      "outlet": "blueprint_publish_check"
+    },
+    {
+      "id": "document-file-panel",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "file-panel",
+      "outlet": "file_panel"
+    },
+    {
+      "id": "formula-audit-panel",
+      "version": 1,
+      "kind": "panel",
+      "artifact": "audit-panel",
+      "outlet": "audit_event_panel"
     }
   ],
   "cell_renderers": [

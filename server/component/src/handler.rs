@@ -1,5 +1,6 @@
-//! The `handler` export: the `record.updated.v1` event handler and the client
-//! commands declared in `server.commands`.
+//! The `event-handler` export (the `record.updated.v1` handler) and the
+//! `command-handler` export (the client commands declared in
+//! `server.commands`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -8,7 +9,9 @@ use serde_json::json;
 
 use crate::activity::{self, Activity, Entry};
 use crate::attricat::host::api::Event;
-use crate::exports::attricat::host::handler::{CommandRequest, CommandResponse};
+use crate::attricat::host::outcomes::{Failure, Rejection};
+use crate::exports::attricat::host::command_handler::{CommandRequest, CommandResponse};
+use crate::exports::attricat::host::event_handler::Delivery;
 use crate::formulas::{self, AttributeSettings, Evaluation, FormulaConfig};
 use crate::host::{self, decode, encode};
 
@@ -24,24 +27,40 @@ struct ChangedFact {
     context_id: Option<String>,
 }
 
+/// The `source-name` of events caused by this extension's own writes.
+const OWN_SOURCE: &str = "extension:attricat-extension-example";
+
 /// Recalculates formulas whose inputs changed, in the context they changed in.
 ///
-/// Formula and data problems (an invalid expression, a non-numeric input) are
-/// recorded in the activity log and the delivery succeeds: retrying cannot fix
-/// them and a failed delivery quarantines the extension. Host failures are
-/// returned so the host retries the at-least-once delivery.
-pub fn handle_event(event: Event) -> Result<(), String> {
-    if event.event_type != "record.updated.v1" {
+/// Formulas run in dependency order and a written target counts as a changed
+/// input for the formulas after it, so one delivery completes a whole chain
+/// and the events caused by those writes are skipped by their source.
+///
+/// Per-formula problems (a non-numeric input) are recorded in the activity
+/// log and the delivery succeeds. Invalid formulas and an unreadable payload
+/// are rejected: recorded by the host, never retried. Host call failures are
+/// retried with backoff (see `From<String> for Failure`).
+pub fn handle_event(event: Event, delivery: Delivery) -> Result<(), Failure> {
+    if event.event_type != "record.updated.v1" || delivery.source_name == OWN_SOURCE {
         return Ok(());
     }
-    let changed: RecordUpdated = decode(&event.payload, "record.updated.v1 payload")?;
-    let mut contexts: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let rejected = |code: &str, message: String, record_id: Option<String>| {
+        Failure::Rejected(Rejection {
+            code: code.into(),
+            message,
+            record_id,
+            connection: None,
+        })
+    };
+    let changed: RecordUpdated = decode(&event.payload, "record.updated.v1 payload")
+        .map_err(|error| rejected("invalid_payload", error, None))?;
+    let mut contexts: BTreeMap<&str, BTreeSet<String>> = BTreeMap::new();
     for fact in &changed.facts {
         if let Some(context_id) = fact.context_id.as_deref() {
             contexts
                 .entry(context_id)
                 .or_default()
-                .insert(fact.attribute_id.as_str());
+                .insert(fact.attribute_id.clone());
         }
     }
     if contexts.is_empty() {
@@ -55,22 +74,28 @@ pub fn handle_event(event: Event) -> Result<(), String> {
             &[Entry::error(
                 "event",
                 reference,
-                Some(changed.record_id),
+                Some(changed.record_id.clone()),
                 error,
             )],
             0,
         );
-        return Ok(());
+        return Err(rejected(
+            "invalid_formulas",
+            error.clone(),
+            Some(changed.record_id),
+        ));
     }
     let mut entries = Vec::new();
     let mut evaluations = 0;
-    for (context_id, changed_ids) in contexts {
-        for formula in index.formulas.iter().filter(|formula| {
-            formula
+    for (context_id, mut changed_ids) in contexts {
+        for formula in &index.formulas {
+            if !formula
                 .dependencies
                 .iter()
-                .any(|dependency| changed_ids.contains(dependency.as_str()))
-        }) {
+                .any(|dependency| changed_ids.contains(dependency))
+            {
+                continue;
+            }
             evaluations += 1;
             if let Some(entry) = recalculate(
                 &changed.record_id,
@@ -81,6 +106,9 @@ pub fn handle_event(event: Event) -> Result<(), String> {
                 "event",
                 reference.clone(),
             )? {
+                if entry.written {
+                    changed_ids.insert(formula.target_attribute_id.clone());
+                }
                 entries.push(entry);
             }
         }
@@ -115,6 +143,7 @@ fn recalculate(
         result: None,
         written: false,
         error: None,
+        at: None,
     };
     let result = match formulas::evaluate(&formula.expression, &values, &settings) {
         Ok(Evaluation {

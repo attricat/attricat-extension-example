@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::activity::{self, Entry};
+use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::attricat::host::{artifacts, attricat_data, selection};
-use crate::exports::attricat::host::operations::{BatchResult, OperationRequest};
+use crate::exports::attricat::host::deferrable_operations::{BatchOutcome, OperationRequest};
 use crate::formulas::{self, AttributeSettings, FormulaIndex};
 use crate::host::{self, decode, encode};
 
@@ -109,7 +110,29 @@ pub fn prepare(request: OperationRequest) -> Result<String, String> {
     Ok("prepared".into())
 }
 
-pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
+/// A missing or invalid formula index is rejected: retrying cannot fix it, so
+/// the host dead-letters the run at once. Host call failures are retried.
+pub fn process_batch(request: OperationRequest) -> Result<BatchOutcome, Failure> {
+    batch(request).inspect_err(|failure| {
+        let message = match failure {
+            Failure::Rejected(rejection) => &rejection.message,
+            Failure::Retry(retry) => &retry.message,
+            Failure::Fault(message) => message,
+        };
+        diagnostic(message.clone());
+    })
+}
+
+fn rejected(code: &str, message: String) -> Failure {
+    Failure::Rejected(Rejection {
+        code: code.into(),
+        message,
+        record_id: None,
+        connection: None,
+    })
+}
+
+fn batch(request: OperationRequest) -> Result<BatchOutcome, Failure> {
     let input: Input = decode(&request.input, "operation input")?;
     let write = input.mode == "write";
     let mut checkpoint: Checkpoint = decode(&request.checkpoint, "checkpoint")?;
@@ -118,11 +141,14 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
     let index = host::storage_get::<FormulaIndex>(&key)?
         .map(|(index, _)| index)
         .ok_or_else(|| {
-            "No formula index for this blueprint revision yet; open one of its records first."
-                .to_owned()
+            rejected(
+                "formula_index_missing",
+                "No formula index for this blueprint revision yet; open one of its records first."
+                    .to_owned(),
+            )
         })?;
     if let Some(error) = index.error {
-        return Err(error);
+        return Err(rejected("invalid_formulas", error));
     }
     let mut settings = BTreeMap::new();
     for formula in &index.formulas {
@@ -158,10 +184,12 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             });
             continue;
         }
-        let values = &member["values"];
+        // Formulas are in dependency order; feeding each result back into the
+        // values completes chained formulas from the frozen selection.
+        let mut values = member["values"].clone();
         let mut stale = 0;
         for formula in &index.formulas {
-            let previous = formulas::resolved_number(values, &formula.target_code)
+            let previous = formulas::resolved_number(&values, &formula.target_code)
                 .ok()
                 .flatten();
             let target_settings = settings
@@ -169,7 +197,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
                 .cloned()
                 .unwrap_or_else(AttributeSettings::default);
             let (result, status) =
-                match formulas::evaluate(&formula.expression, values, &target_settings) {
+                match formulas::evaluate(&formula.expression, &values, &target_settings) {
                     Ok(evaluation) => match evaluation.result {
                         Some(result) if formulas::same_value(previous, Some(result)) => {
                             (Some(result), "current")
@@ -182,6 +210,9 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
                     },
                     Err(_) => (None, "error"),
                 };
+            if let (Some(result), Some(values)) = (result, values.as_object_mut()) {
+                values.insert(formula.target_code.clone(), json!({"value": result}));
+            }
             if write && status == "updated" {
                 intents.push(json!({
                     "kind": "update",
@@ -276,11 +307,12 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
                 result: Some(checkpoint.updated as f64),
                 written: checkpoint.updated > 0,
                 error: None,
+                at: None,
             }],
             0,
         );
     }
-    Ok(BatchResult {
+    Ok(BatchOutcome {
         checkpoint: encode(&checkpoint)?,
         progress: encode(&json!({
             "completed": checkpoint.completed,
@@ -292,6 +324,7 @@ pub fn process_batch(request: OperationRequest) -> Result<BatchResult, String> {
             },
         }))?,
         done,
+        resume_after_ms: None,
     })
 }
 

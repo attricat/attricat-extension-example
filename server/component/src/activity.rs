@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::attricat::host::clock;
 use crate::formulas::{BlueprintWithAttributes, FormulaIndex};
 use crate::host;
 
@@ -32,6 +33,9 @@ pub struct Entry {
     pub result: Option<f64>,
     pub written: bool,
     pub error: Option<String>,
+    /// Seconds since the Unix epoch, from the 1.1 `clock` import.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<u64>,
 }
 
 impl Entry {
@@ -50,6 +54,7 @@ impl Entry {
             result: None,
             written: false,
             error: Some(error.chars().take(MAX_MESSAGE_CHARS).collect()),
+            at: None,
         }
     }
 }
@@ -82,8 +87,17 @@ pub fn record(entries: &[Entry], evaluations: u64) {
     if entries.is_empty() && evaluations == 0 {
         return;
     }
+    let now = clock::now().seconds;
+    let entries: Vec<Entry> = entries
+        .iter()
+        .cloned()
+        .map(|entry| Entry {
+            at: Some(now),
+            ..entry
+        })
+        .collect();
     if let Err(error) = host::storage_update::<Activity, _>(ACTIVITY_KEY, |activity| {
-        activity.record(entries, evaluations)
+        activity.record(&entries, evaluations)
     }) {
         host::log("warn", &format!("activity log not updated: {error}"));
     }
@@ -119,6 +133,7 @@ mod tests {
             result: Some(1.0),
             written,
             error: error.map(str::to_owned),
+            at: None,
         }
     }
 

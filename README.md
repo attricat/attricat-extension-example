@@ -18,8 +18,10 @@ recalculated and written **in that same context**.
 
 | Surface | How the extension uses it | Code |
 | --- | --- | --- |
-| One component | One `server.wasm` exports both `handler` and `operations` | `server/component/src/lib.rs` |
-| `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed | `handler.rs` |
+| One component, 1.1 world | One `server.wasm` exports `event-handler`, `command-handler` and `deferrable-operations` (`outcome-extension`) | `server/component/src/lib.rs` |
+| `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed, completing chains in dependency order, and skips the events its own writes cause by the delivery's `source-name` | `handler.rs` |
+| Typed outcomes | Invalid formulas and payloads are `rejected` (recorded, never retried); host call failures `retry` with backoff instead of quarantining | `handler.rs`, `operation.rs`, `documents/` |
+| `clock` | Activity entries carry the host's wall-clock time | `activity.rs` |
 | `server.commands` | describe, preview, recalculate, attribute settings, activity | `handler.rs` |
 | Interactive `server.operations` | `recalculate-selection` reads the frozen selection, writes through `attricat-data.batch`, annotates records, streams a CSV report | `operation.rs` |
 | Streamed output artifacts | `generate-documents` renders separate PDFs, a stored ZIP or one combined PDF across checkpointed batches, plus a `report.json` | `documents/` |
@@ -39,11 +41,19 @@ recalculated and written **in that same context**.
 | `record_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |
 | `blueprint_detail_panel` (panel) | The revision's validated formulas | `client/blueprint-panel.js` |
 | `data_health_card` (panel) | Evaluation, write, error and run counters | `client/health-card.js` |
-| Client runtime | `command`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
+| `record_header_action` | **Check formulas**: validates the record's revision and reports its formulas | `client/header-action.js` |
+| `explorer_action` | Toolbar button listing the displayed revision's formulas | `client/explorer-action.js` |
+| `blueprint_panel` (panel) | Formula dependency summary, marking chained formulas | `client/blueprint-summary.js` |
+| `blueprint_publish_check` (panel) | Informational: the formulas to expect and when they are validated | `client/publish-check.js` |
+| `file_panel` (panel) | The record's last generated document and formula check, read with `attricat.request` | `client/file-panel.js` |
+| `audit_event_panel` (panel) | The extension's recent activity beside an audit event | `client/audit-panel.js` |
+| Client runtime | `command`, `request`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
 
 The release does not use webhooks (declared by the host but not delivered yet),
-outbound HTTPS (`network.request` needs a public endpoint), secrets, connector
-jobs, or the client capabilities that have no `attricat.*` method yet.
+outbound HTTPS (`network.request` needs a public endpoint), secrets, OAuth
+connections, connector jobs and exports (including the `export_mapping`
+outlet), `resume-after-ms` deferral, or the client capabilities that have no
+`attricat.*` method yet.
 
 ## How it works
 
@@ -62,25 +72,33 @@ Comparison uses a relative tolerance, because Attricat stores decimals
 (`99.99 * 1.23` computes as `122.98769999999999` and reads back as `122.9877`).
 Writes carry the extension's provenance (`extension:attricat-extension-example`).
 
-### One component, two exports
+### One component, three exports
 
-`server.wasm` targets the combined `attricat-extension` world of
-`attricat:host@1.1.0` (`server/component/wit`). An extension contributes at
+`server.wasm` targets the `outcome-extension` world of `attricat:host@1.1.0`
+(`server/component/wit`). An extension contributes at
 most once to each UI outlet and has one action dialog, so both interactive
 operations share the record, row and bulk actions and the dialog, which
 dispatches by task; the `operations` export dispatches by operation ID.
 
-- **`handler`**: the event handler and client commands use the typed `api`
-  imports (`read`, `write`, scoped configuration) and `call` for storage,
-  events and logging.
-- **`operations`**: the interactive runs read only their frozen selection
+- **`event-handler`** and **`command-handler`**: the event handler and client
+  commands use the typed `api` imports (`read`, `write`, scoped configuration)
+  and `call` for storage, events and logging.
+- **`deferrable-operations`**: the interactive runs read only their frozen selection
   (values already resolved in the run's context) and write only through
   `attricat-data.batch`. Direct `api` catalog access is refused inside a run.
 
-Formula problems (an invalid expression, a non-numeric value) are recorded in
-the activity log and the event delivery succeeds; retrying cannot fix them and
-a failed delivery quarantines the extension. Host failures are returned so the
-host retries the delivery.
+A per-formula problem (a non-numeric value) is recorded in the activity log
+and the delivery succeeds. Invalid formulas are recorded too and the delivery
+is `rejected`, which the host records without retrying. Host failures are
+returned as `retry`, so the host retries the delivery or batch with backoff;
+only a `fault` (never returned here), a trap or a timeout quarantines the
+installation.
+
+Formulas are indexed in dependency order. The handler treats each target it
+writes as a changed input for the formulas after it, and the interactive run
+feeds each result into the values it evaluates next, so a chain such as
+`price_deposit = "price_gross * 0.2"` completes in one delivery or batch. That
+is what lets the handler skip the events its own writes cause.
 
 ### Documents
 
@@ -160,6 +178,8 @@ in [AGENTS.md](AGENTS.md):
    ATTRICAT_WEB_URL=http://127.0.0.1:<web-port> ATTRICAT_SESSION_FILE=.acli-session just e2e
    ```
 
-`e2e/verify.mjs` creates its own context, blueprint revision (with the formula
-table and a `computed-number` column) and records, then checks every server
-feature and every UI contribution listed above in Chromium.
+`e2e/verify.mjs` creates its own context, blueprint revision (with a chained
+formula table, a file attribute and a `computed-number` column), records and a
+datasheet upload, then checks every server feature and every UI contribution
+listed above in Chromium. File panels appear only beneath read-only file
+values, so that check signs in as the server's sample viewer.
