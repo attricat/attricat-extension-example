@@ -31,7 +31,7 @@ recalculated and written **in that same context**.
 | `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata, from runs; the event handler records `last_recalculated` metadata with an annotation-only `attricat.command.v1` batch | `operation.rs`, `documents/`, `handler.rs`, `host.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
-| `route` + `navigation` | **Document templates**: create, edit and delete versioned templates (layout, heading, printed attributes) through commands | `client/templates.jsx`, `documents/templates.rs` |
+| `route` + `navigation` | **Document templates**: an embedded editor per template, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
 | `record_action` (v2) | One-click recalculation followed by `attricat.refresh`, and **Generate document…** opening the host dialog | `client/record-action.js` |
@@ -106,25 +106,36 @@ is what lets the handler skip the events its own writes cause.
 `generate-documents` (`server/component/src/documents/`) takes a template ID
 and version and an output mode (separate PDFs, a stored ZIP archive, or one
 combined PDF). Templates are managed on the **Document templates** route and
-stored under the `templates` storage key; until the first save the built-in
-`summary` and `label` apply (built-ins can be edited, not deleted). A template
-has a layout (`summary` prints chosen saved values, `label` the title, record
-ID and fingerprint), an optional heading and, for summaries, the attribute
-codes to print in order. Every save bumps its version. The dialog starts a run
-of the version it shows; the run rejects a version that changed meanwhile and
+stored under the `document-templates` storage key; until the first save the
+built-in `summary` and `label` apply (built-ins can be edited, not deleted).
+
+A template is text: a one-line title and a body. Each `{{ attribute_code }}`
+mark is replaced with the record's saved value in the run's context (with
+context fallback), and a mark without a value prints as `-`. Three marks name
+the record itself: `{{ record.id }}`, `{{ record.fingerprint }}` (the first 16
+hex digits of the captured content's SHA-256) and `{{ record.values }}` (every
+saved value, one `code: value` line each, body only). An empty title falls
+back to the record ID. The route embeds an editor per template that checks
+marks as you type, inserts them at the caret and previews the text with marks
+highlighted; `save-template` validates them again.
+
+Every save bumps the template's version. The dialog starts a run of the
+version it shows; the run rejects a version that changed meanwhile and
 snapshots the template in its checkpoint, so later edits never change a
-started or retried run. It reads the run's frozen selection one record
-per batch, captures each record's rendering input once (with a SHA-256
-fingerprint), renders a PDF from that capture, and checkpoints every step so a
-retried batch appends identical bytes. Successfully finalized records receive
-the `attricat-extension-example:document-generated` tag and `last_document`
+started or retried run. The run captures only the values the template's marks
+name, and `report.json` lists each record's `missing_values`.
+
+The server component reads the run's frozen selection one record per batch,
+captures each record's rendering input once (with a SHA-256 fingerprint),
+renders a PDF from that capture, and checkpoints every step so a retried batch
+appends identical bytes. Successfully finalized records receive the
+`attricat-extension-example:document-generated` tag and `last_document`
 metadata in the extension's own namespace; combined outputs annotate only
 after the archive or PDF is finalized. Every run also produces a
 `report.json` with per-record results, including annotation failures.
 
-Intentional failure: a summary template fails a record that has none of its
-values saved, and a label template fails a record without a `title`/`name`
-string. These records are reported as failed in the run outcome and report;
+Intentional failure: a template that names values fails a record that has
+none of them saved. These records are reported as failed in the run outcome and report;
 the run itself still completes.
 
 ### Shared state in extension storage

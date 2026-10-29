@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.8.0",
+  "version": "0.9.1",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -427,7 +427,8 @@
               "required": [
                 "id",
                 "name",
-                "layout"
+                "title",
+                "body"
               ],
               "properties": {
                 "id": {
@@ -439,24 +440,14 @@
                   "minLength": 1,
                   "maxLength": 60
                 },
-                "layout": {
-                  "type": "string",
-                  "enum": [
-                    "summary",
-                    "label"
-                  ]
-                },
-                "heading": {
+                "title": {
                   "type": "string",
                   "maxLength": 120
                 },
-                "attributes": {
-                  "type": "array",
-                  "maxItems": 40,
-                  "items": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9_-]{1,64}$"
-                  }
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
                 },
                 "version": {
                   "type": "integer",

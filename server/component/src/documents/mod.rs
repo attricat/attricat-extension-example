@@ -12,6 +12,8 @@ mod pdf;
 pub mod templates;
 mod zip;
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -19,7 +21,7 @@ use sha2::{Digest, Sha256};
 use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::attricat::host::{artifacts, attricat_data, selection};
 use crate::exports::attricat::host::deferrable_operations::{BatchOutcome, OperationRequest};
-use templates::{DocumentTemplate, Layout};
+use templates::{DocumentTemplate, Values};
 
 pub const OPERATION: &str = "generate-documents";
 const MAX_LINES: usize = 40;
@@ -66,10 +68,27 @@ enum Phase {
 struct Captured {
     record_id: String,
     position: u64,
-    title: Option<String>,
+    /// The saved values the template's marks name.
+    values: BTreeMap<String, String>,
+    /// Every saved value as `code: value`, when the template prints them all.
     lines: Vec<String>,
     fingerprint: String,
     read_at: String,
+}
+
+impl Values for Captured {
+    fn value(&self, code: &str) -> Option<&str> {
+        self.values.get(code).map(String::as_str)
+    }
+    fn record_id(&self) -> &str {
+        &self.record_id
+    }
+    fn fingerprint(&self) -> &str {
+        &self.fingerprint
+    }
+    fn all_lines(&self) -> &[String] {
+        &self.lines
+    }
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -80,6 +99,9 @@ struct RecordResult {
     status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+    /// Attribute codes the template names that the record has no value for.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    missing_values: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     output_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,95 +155,76 @@ fn truncate(text: &str, limit: usize) -> String {
     text.chars().take(limit).collect()
 }
 
-/// Captures the title and the template's printed values. A summary with an
-/// attribute list prints those codes in its order; otherwise every saved value.
-fn capture(member: &Value, read_at: &str, attributes: &[String]) -> Captured {
-    let mut title = None;
-    let mut first_string = None;
+/// Captures the values the template's marks name, and every saved value when
+/// it prints `{{ record.values }}`, bounded by line count and bytes.
+fn capture(member: &Value, read_at: &str, template: &DocumentTemplate) -> Captured {
+    let (codes, all) = template.references();
+    let mut values = BTreeMap::new();
     let mut lines = Vec::new();
     let mut bytes = 0;
-    if let Some(values) = member["values"].as_object() {
-        let selected: Vec<(&String, &Value)> = if attributes.is_empty() {
-            values.iter().collect()
-        } else {
-            attributes
-                .iter()
-                .filter_map(|code| values.get_key_value(code))
-                .collect()
-        };
-        for (code, entry) in values {
-            let raw = entry.get("value").unwrap_or(entry);
-            if let (Value::String(_), Some(text)) = (raw, scalar_text(raw)) {
-                if title.is_none() && matches!(code.as_str(), "title" | "name") {
-                    title = Some(truncate(&text, MAX_LINE_CHARS));
-                }
-                first_string.get_or_insert_with(|| truncate(&text, MAX_LINE_CHARS));
-            }
-        }
-        for (code, entry) in selected {
+    if let Some(saved) = member["values"].as_object() {
+        for (code, entry) in saved {
             let raw = entry.get("value").unwrap_or(entry);
             let Some(text) = scalar_text(raw) else {
                 continue;
             };
-            let line = truncate(&format!("{code}: {text}"), MAX_LINE_CHARS);
-            if lines.len() >= MAX_LINES || bytes + line.len() > MAX_CAPTURE_BYTES {
-                break;
+            if codes.contains(code) {
+                values.insert(code.clone(), truncate(&text, MAX_LINE_CHARS));
             }
-            bytes += line.len();
-            lines.push(line);
+            let line = truncate(&format!("{code}: {text}"), MAX_LINE_CHARS);
+            if all && lines.len() < MAX_LINES && bytes + line.len() <= MAX_CAPTURE_BYTES {
+                bytes += line.len();
+                lines.push(line);
+            }
         }
     }
-    let title = title.or(first_string);
     let record_id = member["record_id"].as_str().unwrap_or_default().to_owned();
     let canonical = json!({
         "record_id": record_id,
         "updated_at": member["updated_at"],
-        "title": title,
+        "values": values,
         "lines": lines,
     });
     Captured {
         fingerprint: format!("{:x}", Sha256::digest(canonical.to_string().as_bytes())),
         record_id,
         position: member["position"].as_u64().unwrap_or_default(),
-        title,
+        values,
         lines,
         read_at: read_at.to_owned(),
     }
 }
 
-/// Template compatibility is validated per record; failures are reported,
-/// never fatal to the run.
+/// A record fails, reported but never fatal to the run, when the template
+/// names values and the record has none of them saved.
 fn validate(template: &DocumentTemplate, captured: &Captured) -> Result<(), String> {
-    match template.layout {
-        Layout::Label if captured.title.is_none() => Err(format!(
-            "the `{}` label template requires a title or name value",
+    let (codes, all) = template.references();
+    let names_values = !codes.is_empty() || all;
+    if names_values && captured.values.is_empty() && captured.lines.is_empty() {
+        return Err(format!(
+            "none of the values the `{}` template prints are saved",
             template.id
-        )),
-        Layout::Summary if captured.lines.is_empty() => Err(format!(
-            "the `{}` summary template found none of its values saved",
-            template.id
-        )),
-        _ => Ok(()),
+        ));
     }
+    Ok(())
 }
 
-fn page_text(template: &DocumentTemplate, captured: &Captured) -> (String, Vec<String>) {
-    let title = captured
-        .title
-        .clone()
-        .unwrap_or_else(|| format!("Record {}", captured.record_id));
-    let mut lines = Vec::new();
-    if !template.heading.is_empty() {
-        lines.extend([template.heading.clone(), String::new()]);
-    }
-    match template.layout {
-        Layout::Summary => lines.extend(captured.lines.iter().cloned()),
-        Layout::Label => lines.extend([
-            format!("Record: {}", captured.record_id),
-            format!("Fingerprint: {}", &captured.fingerprint[..16]),
-        ]),
-    }
-    (title, lines)
+/// Renders the title and body lines, and the codes left without a value. An
+/// empty title falls back to the record ID.
+fn page_text(
+    template: &DocumentTemplate,
+    captured: &Captured,
+) -> (String, Vec<String>, Vec<String>) {
+    let (title, mut missing) = templates::render(&template.title, captured, "");
+    let title = match title.trim() {
+        "" => format!("Record {}", captured.record_id),
+        title => title.to_owned(),
+    };
+    let (body, body_missing) = templates::render(&template.body, captured, "-");
+    missing.extend(body_missing);
+    missing.sort();
+    missing.dedup();
+    (title, body.lines().map(str::to_owned).collect(), missing)
 }
 
 /// Snapshots the requested template version from storage.
@@ -375,7 +378,7 @@ fn step(
                 let position = member["position"].as_u64().unwrap_or_default();
                 match member["status"].as_str() {
                     Some("available") => {
-                        let captured = capture(member, read_at, &template.attributes);
+                        let captured = capture(member, read_at, template);
                         match validate(template, &captured) {
                             Ok(()) => {
                                 checkpoint.pending = Some(captured);
@@ -414,7 +417,7 @@ fn step(
                 .pending
                 .take()
                 .ok_or("render step has no captured input")?;
-            let (title, lines) = page_text(template, &captured);
+            let (title, lines, missing_values) = page_text(template, &captured);
             let name = document_name(captured.position);
             let mut result = RecordResult {
                 record_id: captured.record_id.clone(),
@@ -423,6 +426,7 @@ fn step(
                 output_name: Some(name.clone()),
                 fingerprint: Some(captured.fingerprint.clone()),
                 read_at: Some(captured.read_at.clone()),
+                missing_values,
                 ..Default::default()
             };
             match input.output {

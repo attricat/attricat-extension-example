@@ -259,27 +259,37 @@ try {
     await app.getByText('evaluations').first().waitFor({ timeout: 60_000 });
   });
 
-  await step('route + navigation: document templates are created and versioned', async () => {
+  await step('route + navigation: document templates are edited with {{ marks }}', async () => {
     await page.goto(`${WEB}/extensions/${EXTENSION}/document-templates`);
     const app = await frameWith('Summary sheet');
     if (!(await page.getByRole('link', { name: 'Document templates' }).count())) throw new Error('navigation entry missing');
     // The suite reuses one workspace: start from a clean slate.
-    if (await app.getByRole('button', { name: 'Delete Price sheet' }).count()) {
-      await app.getByRole('button', { name: 'Delete Price sheet' }).click();
+    const existing = app.getByRole('region', { name: 'Template Price sheet' });
+    if (await existing.count()) {
+      await existing.getByRole('button', { name: 'Delete template' }).click();
       await app.getByText('Deleted Price sheet.').waitFor({ timeout: 30_000 });
     }
     await app.getByRole('button', { name: 'New template' }).click();
-    await app.getByLabel('Template ID').fill('price-sheet');
-    await app.getByLabel('Name').fill('Price sheet');
-    await app.getByLabel('Attributes').fill('title, price_gross');
-    await app.getByRole('button', { name: 'Save template' }).click();
+    const created = app.getByRole('region', { name: 'New template' });
+    await created.getByLabel('Template ID').fill('price-sheet');
+    await created.getByLabel('Name').fill('Price sheet');
+    await created.getByLabel('Body').fill('Gross: {{ price_gross }} EUR\nDeposit: {{ price_deposit }}\nColour: ');
+    // The editor inserts marks at the caret and checks them as you type.
+    await created.getByLabel('Body').press('End');
+    await created.getByLabel('Attribute code to insert').fill('colour');
+    await created.getByRole('button', { name: 'Insert attribute' }).click();
+    await created.getByText('Marks used: title, price_gross, price_deposit, colour').waitFor({ timeout: 10_000 });
+    await created.getByLabel('Title').fill('{{ title');
+    await created.getByText('Title: A {{ mark is not closed with }}.').waitFor({ timeout: 10_000 });
+    await created.getByLabel('Title').fill('{{ title }}');
+    await created.getByRole('button', { name: 'Create template' }).click();
     await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
-    await app.getByRole('button', { name: 'Edit Price sheet' }).click();
-    await app.getByLabel('Heading').fill(`E2E ${suffix}`);
-    await app.getByRole('button', { name: 'Save template' }).click();
+    // A second save is version 2.
+    const editor = app.getByRole('region', { name: 'Template Price sheet' });
+    await editor.getByLabel('Body').fill(`E2E ${suffix}\n${await editor.getByLabel('Body').inputValue()}`);
+    await editor.getByRole('button', { name: 'Save template' }).click();
     await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
-    const row = app.getByRole('row', { name: /Price sheet/ });
-    if (!/title, price_gross\s*2/.test(await row.innerText())) throw new Error(await row.innerText());
+    await app.getByRole('region', { name: 'Template Price sheet' }).getByText('version 2').waitFor({ timeout: 10_000 });
   });
 
   await step('blueprint_detail_panel lists the validated formula', async () => {
@@ -358,6 +368,16 @@ try {
     if (!record.system_tags?.includes(`${EXTENSION}:document-generated`)) throw new Error(JSON.stringify(record.system_tags));
     const last = record.system_metadata?.[EXTENSION]?.last_document;
     if (last?.template !== 'price-sheet' || last?.template_version !== 2) throw new Error(JSON.stringify(last));
+    // The PDF has the marks replaced with Alpha's saved values in the run's
+    // context; a missing value prints as "-".
+    const response = await fetch(`${WEB}/api/extension-operation-runs/${last.run_id}/artifacts/${last.artifact_id}/download`, {
+      headers: { cookie: `attricat_session=${session.session}; attricat_csrf=${session.csrf}` },
+    });
+    if (!response.ok) throw new Error(`PDF download → ${response.status}`);
+    const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1');
+    for (const text of [`E2E ${suffix}`, '(Alpha)', 'Gross: 122.99 EUR', 'Deposit: 24.598', 'Colour: -']) {
+      if (!pdf.includes(text)) throw new Error(`the PDF does not contain ${JSON.stringify(text)}`);
+    }
   });
 
   await step('record_header_action checks the formulas', async () => {
