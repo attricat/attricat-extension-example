@@ -194,6 +194,36 @@ pub fn emit_recalculated(record_id: &str, payload: Value) -> Result<(), String> 
     Ok(())
 }
 
+/// Patches this extension's annotation namespace on one record with an
+/// annotation-only `attricat.command.v1` batch (needs only
+/// `attricat.annotations.write`). Available outside operation runs, including
+/// event handlers. Returns the intent's status: `applied`, `already_applied`
+/// for a retried intent key, or the host's rejection.
+pub fn annotate(intent_key: &str, record_id: &str, set_metadata: Value) -> Result<String, String> {
+    let request = json!({"operation": "batch", "batch": {
+        "batch_key": intent_key,
+        "dry_run": false,
+        "intents": [{
+            "kind": "annotate",
+            "intent_key": intent_key,
+            "record_id": record_id,
+            "set_metadata": set_metadata,
+        }],
+    }});
+    let outcomes: Value = decode(
+        &api::call("attricat.command.v1", &request.to_string())?,
+        "annotation outcome",
+    )?;
+    let outcome = &outcomes[0];
+    match outcome["status"].as_str() {
+        Some(status @ ("applied" | "already_applied")) => Ok(status.to_owned()),
+        _ => Err(format!(
+            "annotation rejected: {}",
+            outcome["error"].as_str().unwrap_or("unknown error")
+        )),
+    }
+}
+
 /// Best-effort structured logging; a log failure never fails the work.
 pub fn log(level: &str, message: &str) {
     let _ = api::log(level, message);

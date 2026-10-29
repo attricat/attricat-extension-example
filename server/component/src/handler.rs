@@ -9,6 +9,7 @@ use serde_json::json;
 
 use crate::activity::{self, Activity, Entry};
 use crate::attricat::host::api::Event;
+use crate::attricat::host::clock;
 use crate::attricat::host::outcomes::{Failure, Rejection};
 use crate::exports::attricat::host::command_handler::{CommandRequest, CommandResponse};
 use crate::exports::attricat::host::event_handler::Delivery;
@@ -114,7 +115,37 @@ pub fn handle_event(event: Event, delivery: Delivery) -> Result<(), Failure> {
         }
     }
     activity::record(&entries, evaluations);
+    annotate_recalculated(&event, &changed.record_id, &entries);
     Ok(())
+}
+
+/// Records what this delivery wrote in the record's own annotation namespace
+/// (`system_metadata["attricat-extension-example"].last_recalculated`). The
+/// intent key is the event ID, so a redelivered event is `already_applied`.
+/// Like the activity log it is bookkeeping: a failure is logged, never
+/// retried, because the formula writes already happened.
+fn annotate_recalculated(event: &Event, record_id: &str, entries: &[Entry]) {
+    let written: Vec<_> = entries.iter().filter(|entry| entry.written).collect();
+    if written.is_empty() {
+        return;
+    }
+    let targets: BTreeSet<_> = written
+        .iter()
+        .filter_map(|entry| entry.target_code.as_deref())
+        .collect();
+    let contexts: BTreeSet<_> = written
+        .iter()
+        .filter_map(|entry| entry.context_id.as_deref())
+        .collect();
+    let metadata = json!({"last_recalculated": {
+        "event_id": event.id,
+        "targets": targets,
+        "context_ids": contexts,
+        "at": clock::now().seconds,
+    }});
+    if let Err(error) = host::annotate(&format!("recalculated:{}", event.id), record_id, metadata) {
+        host::log("warn", &format!("last_recalculated not annotated: {error}"));
+    }
 }
 
 /// Evaluates one formula in one context and writes the target when its direct

@@ -178,6 +178,18 @@ check('event handler writes the target in the non-default context, rounded', alp
 // a chained formula must be completed within the same delivery.
 const alphaDeposit = await poll('alpha price_deposit', () => valueIn(deposit, alpha, context.id), (value) => value !== undefined);
 check('event handler completes a chained formula in the same delivery', Math.abs(alphaDeposit - 24.598) < 1e-9, alphaDeposit);
+// The handler annotates the record it wrote, through an annotation-only
+// attricat.command.v1 batch made from the event handler itself.
+const lastRecalculated = await poll(
+  'alpha last_recalculated annotation',
+  async () => (await api('GET', `/records/${alpha}`)).system_metadata?.[EXTENSION]?.last_recalculated,
+  (value) => value?.targets?.includes('price_deposit'),
+);
+check(
+  'event handler annotates the record in its own namespace',
+  lastRecalculated.targets.join(',') === 'price_deposit,price_gross' && lastRecalculated.context_ids.includes(context.id) && typeof lastRecalculated.at === 'number',
+  JSON.stringify(lastRecalculated),
+);
 await update(beta, [scalar('price_net', 10, context.id), scalar('vat_rate', 0.5, context.id)]);
 await update(gamma, [scalar('price_net', 50, defaultContext.id), scalar('vat_rate', 0.1, defaultContext.id)]);
 check('event handler writes the default context too', (await poll('gamma price_gross', () => grossIn(gamma, defaultContext.id), (value) => value !== undefined)) === 55);

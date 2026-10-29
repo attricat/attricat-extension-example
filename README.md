@@ -28,7 +28,7 @@ recalculated and written **in that same context**.
 | `scoped_configuration` | Per-attribute rounding and unit for each blueprint revision | `host.rs`, `attribute-settings.js` |
 | `storage.extension` | A per-revision formula index and an activity log, written by the server and read by clients | `activity.rs`, `client/lib.js` |
 | `event_contracts` + `events.emit` | Publishes `plugin.attricat-extension-example.formula_recalculated.v1` | `handler.rs` |
-| `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata | `operation.rs`, `documents/` |
+| `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata, from runs; the event handler records `last_recalculated` metadata with an annotation-only `attricat.command.v1` batch | `operation.rs`, `documents/`, `handler.rs`, `host.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
