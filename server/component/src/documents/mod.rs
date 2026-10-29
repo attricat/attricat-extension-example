@@ -91,7 +91,10 @@ impl Values for Captured {
     }
 }
 
+/// Fields skipped when empty must read back as empty: the result is part of
+/// the checkpoint every later batch decodes.
 #[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
 struct RecordResult {
     record_id: String,
     position: u64,
@@ -577,4 +580,35 @@ pub fn process_batch(request: &OperationRequest) -> Result<BatchOutcome, Failure
         done,
         resume_after_ms: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn checkpoint_with(missing_values: Vec<String>) -> Checkpoint {
+        Checkpoint {
+            phase: Phase::Report,
+            results: vec![RecordResult {
+                record_id: "rec-1".into(),
+                status: "rendered".into(),
+                artifact_id: Some("artifact".into()),
+                missing_values,
+                ..Default::default()
+            }],
+            template: Some(templates::builtins().remove(0)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn checkpoints_round_trip_with_and_without_skipped_fields() {
+        for missing in [Vec::new(), vec!["colour".to_owned()]] {
+            let encoded = serde_json::to_string(&checkpoint_with(missing.clone())).unwrap();
+            let decoded: Checkpoint = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded.results[0].missing_values, missing);
+            assert_eq!(decoded.results[0].artifact_id.as_deref(), Some("artifact"));
+            assert!(decoded.phase == Phase::Report);
+        }
+    }
 }

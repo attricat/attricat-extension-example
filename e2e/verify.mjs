@@ -383,6 +383,25 @@ try {
     }
   });
 
+  await step('a template whose marks all resolve completes its run', async () => {
+    // No result field is left empty here, so the run must still read back its
+    // own checkpoint through to the report batch.
+    const dataTab = page.getByRole('tab', { name: 'Data', exact: true });
+    if (await dataTab.count()) await dataTab.click();
+    const action = await frameWith('Generate document…');
+    await action.getByRole('button', { name: 'Generate document…' }).click();
+    const dialog = await frameWith(/Product label \(v\d+\)/);
+    await dialog.getByLabel('Template').selectOption('label');
+    await dialog.getByLabel('Output').selectOption('individual');
+    await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
+    await frameWith('Run Completed · 1 generated', 180_000);
+    if (!(await dialog.getByRole('button', { name: 'Download document-1.pdf' }).count())) throw new Error('no document-1.pdf download');
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    const last = (await api('GET', `/records/${alpha}`)).system_metadata?.[EXTENSION]?.last_document;
+    if (last?.template !== 'label') throw new Error(JSON.stringify(last));
+  });
+
   await step('record_header_action checks the formulas', async () => {
     const header = await frameWith('Check formulas');
     // Newer hosts offer header actions in the record's Actions menu, under a
@@ -411,7 +430,7 @@ try {
       if (!login.ok()) throw new Error(`viewer login → ${login.status()}`);
       const viewerPage = await viewerContext.newPage();
       await viewerPage.goto(`${WEB}/records/${alpha}`);
-      await frameWith('Last document: price-sheet template, combined PDF', 90_000, viewerPage);
+      await frameWith('Last document: label template, separate PDF', 90_000, viewerPage);
     } finally {
       await viewerContext.close();
     }
