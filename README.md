@@ -35,7 +35,7 @@ recalculated and written **in that same context**.
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
 | `record_action` (v2) | One-click recalculation followed by `attricat.refresh`, and **Generate document…** opening the host dialog | `client/record-action.js` |
 | `explorer_row_action` / `explorer_bulk_action` (v2) | Selection-aware actions that open the host dialog | `client/selection-action.js` |
-| `action_dialog` | One dialog, two tasks: recalculate formulas or generate documents; starts, follows and cancels runs, lists recent runs, downloads outputs | `client/dialog*.js` |
+| `action_dialog` | One dialog, two tasks: recalculate formulas or generate documents; starts, follows and cancels runs and downloads outputs; the host renders the title and close control | `client/dialog*.js` |
 | `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
 | `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
 | `record_attribute_panel` (panel) | Shows what an attribute feeds and how a target is computed | `client/attribute-panel.js` |

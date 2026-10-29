@@ -3,7 +3,8 @@
  * has one dialog, so it offers both interactive operations as tasks: opened
  * from the record preview it starts on documents (recalculation has a
  * one-click button there), from the Explorer on recalculation.
- * Demonstrates `attricat.operations.*` and `attricat.dialog.close`. */
+ * The host dialog renders the title and close control; the frame only calls
+ * `attricat.dialog.close` for Escape, which never reaches the host. */
 import { el, installStyles } from './lib.js';
 import { mountDocuments } from './dialog-documents.js';
 import { mountRecalculation } from './dialog-recalculate.js';
@@ -36,7 +37,7 @@ export const mount = (root, attricat) => {
       tabs[index].setAttribute('aria-selected', String(selected));
       tabs[index].className = selected ? '' : 'secondary';
     });
-    cleanup = task.mount(body, attricat, close);
+    cleanup = task.mount(body, attricat);
   };
 
   root.replaceChildren(el('div', { class: 'stack' }, el('div', { class: 'row', role: 'tablist', 'aria-label': 'Task' }, tabs), body));

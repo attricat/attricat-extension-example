@@ -1,13 +1,12 @@
 /* The dialog's "Generate documents" task: starts the interactive
  * `generate-documents` operation (separate PDFs, a ZIP archive or one combined
- * PDF), follows the run, offers its downloads and lists recent runs. Closing
- * the dialog never cancels a started run, which stays listed under
- * Profile → Extension runs. Demonstrates `attricat.operations.cancel/list`. */
+ * PDF), follows the run and offers its downloads. The host dialog provides
+ * the close control; closing never cancels a started run, which stays listed
+ * under Profile → Extension runs. Demonstrates `attricat.operations.cancel`. */
 import { el } from './lib.js';
 
 const OPERATION = 'generate-documents';
 const POLL_MS = 2000;
-const RECENT_RUNS = 5;
 const ACTIVE = new Set(['queued', 'running', 'cancelling']);
 const STATUS = {
   queued: 'Queued',
@@ -35,7 +34,7 @@ const outcomeText = (progress) => {
   return ` · ${outcome.succeeded ?? 0} generated, ${outcome.failed ?? 0} failed, ${outcome.skipped ?? 0} skipped`;
 };
 
-export const mountDocuments = (body, attricat, close) => {
+export const mountDocuments = (body, attricat) => {
   let disposed = false;
   let timer;
   let pendingKey;
@@ -57,7 +56,6 @@ export const mountDocuments = (body, attricat, close) => {
   const cancel = el('button', { type: 'button', class: 'secondary', hidden: true }, 'Cancel run');
   const status = el('p', { role: 'status', 'aria-live': 'polite', class: 'muted' });
   const downloads = el('ul', { hidden: true, 'aria-label': 'Generated files' });
-  const recent = el('ul', { 'aria-label': 'Recent document runs' });
 
   const showRun = (run) => {
     currentRun = run;
@@ -87,7 +85,6 @@ export const mountDocuments = (body, attricat, close) => {
       if (disposed || currentRun?.id !== runId) return;
       showRun(run);
       if (ACTIVE.has(run.status)) timer = setTimeout(() => poll(runId), POLL_MS);
-      else refreshRecent();
     } catch {
       if (!disposed) status.textContent = 'The run status could not be loaded.';
     }
@@ -96,23 +93,6 @@ export const mountDocuments = (body, attricat, close) => {
   const follow = (runId) => {
     currentRun = { id: runId };
     poll(runId);
-  };
-
-  const refreshRecent = async () => {
-    try {
-      const runs = (await attricat.operations.list())
-        .filter((run) => run.operation_id === OPERATION)
-        .slice(0, RECENT_RUNS);
-      if (disposed) return;
-      recent.replaceChildren(
-        ...runs.map((run) =>
-          el('li', {}, el('button', { type: 'button', class: 'secondary', onclick: () => follow(run.id) },
-            `${STATUS[run.status] ?? run.status} · ${run.selection_count} records · ${new Date(run.created_at).toLocaleString()}`)),
-        ),
-      );
-    } catch {
-      recent.replaceChildren();
-    }
   };
 
   // A changed request must not reuse a key that may already name a run.
@@ -134,7 +114,6 @@ export const mountDocuments = (body, attricat, close) => {
       });
       pendingKey = undefined;
       follow(run_id);
-      refreshRecent();
     } catch {
       // Keep the key: retrying the same request returns the same run.
       status.textContent = 'The run could not be started. Try again.';
@@ -160,13 +139,10 @@ export const mountDocuments = (body, attricat, close) => {
       `${count} ${count === 1 ? 'record' : 'records'} captured. Closing this dialog does not cancel a started run; follow it under Profile → Extension runs.`),
     templateField,
     outputField,
-    el('div', { class: 'row' }, generate, cancel, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Close')),
+    el('div', { class: 'row' }, generate, cancel),
     status,
     downloads,
-    el('h3', {}, 'Recent runs'),
-    recent,
   );
-  refreshRecent();
 
   return () => {
     disposed = true;

@@ -6,7 +6,7 @@ import { command, el, loadFormulaIndex } from './lib.js';
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const mountRecalculation = (body, attricat, close) => {
+export const mountRecalculation = (body, attricat) => {
   let disposed = false;
   const context = attricat.context ?? {};
   const ids = context.record_ids ?? [];
@@ -39,8 +39,7 @@ export const mountRecalculation = (body, attricat, close) => {
         el('button', { type: 'button', onclick: () => attricat.operations.download({ run_id: run.id, artifact_id: artifactId }) }, `Download ${artifact.name ?? 'report'}`),
       );
     }
-    actions.append(el('button', { type: 'button', class: 'secondary', onclick: close }, 'Close'));
-    body.append(actions);
+    if (actions.childElementCount) body.append(actions);
   };
 
   const render = (index) => {
@@ -48,7 +47,6 @@ export const mountRecalculation = (body, attricat, close) => {
     if (index?.error || !formulas.length) {
       body.replaceChildren(
         el('p', { class: index?.error ? 'error' : 'muted' }, index?.error ?? 'This blueprint revision declares no formulas.'),
-        el('button', { type: 'button', class: 'secondary', onclick: close }, 'Close'),
       );
       return;
     }
@@ -77,7 +75,7 @@ export const mountRecalculation = (body, attricat, close) => {
         mode.disabled = false;
       }
     });
-    const controls = el('div', { class: 'row' }, mode, start, el('button', { type: 'button', class: 'secondary', onclick: close }, 'Cancel'));
+    const controls = el('div', { class: 'row' }, mode, start);
     body.replaceChildren(
       el('p', {}, `${ids.length} selected ${ids.length === 1 ? 'record' : 'records'} · context ${context.context_id ? context.context_id.slice(0, 8) : 'default'}`),
       el('ul', {}, formulas.map((formula) => el('li', {}, el('code', {}, `${formula.target_code} = ${formula.expression}`)))),
@@ -93,7 +91,7 @@ export const mountRecalculation = (body, attricat, close) => {
       if (!index && ids[0]) index = await command(attricat, 'describe-formulas', { record_id: ids[0], context_id: null });
       if (!disposed) render(index);
     } catch (error) {
-      body.replaceChildren(el('p', { class: 'error' }, error.message), el('button', { type: 'button', onclick: close }, 'Close'));
+      body.replaceChildren(el('p', { class: 'error' }, error.message));
     }
   })();
 

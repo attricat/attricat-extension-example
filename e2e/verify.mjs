@@ -228,6 +228,18 @@ const frameWith = async (text, timeout = 90_000, target = page) => {
   throw new Error(`no extension frame contains ${text}`);
 };
 
+// Hosts that group Explorer extension contributions in a popover reveal a
+// trigger once a frame renders; its frame stays mounted, so open the trigger
+// when it exists (older hosts mount the frames inline) and act in the frame.
+const openIfPresent = async (trigger) => {
+  try {
+    await trigger.waitFor({ timeout: 15_000 });
+  } catch {
+    return;
+  }
+  await trigger.click();
+};
+
 const step = async (label, run) => {
   try {
     await run();
@@ -286,7 +298,10 @@ try {
   });
 
   await step('record_preview_panel evaluates, previews and recalculates', async () => {
-    await page.getByRole('button', { name: 'Extension contributions' }).click();
+    // Newer hosts give record preview panels an Extensions tab; older ones a
+    // drawer behind an "Extension contributions" button.
+    const tab = page.getByRole('tab', { name: 'Extensions', exact: true });
+    await (await tab.count() ? tab : page.getByRole('button', { name: 'Extension contributions' })).click();
     const inspector = await frameWith(/Result\s+122\.99 EUR/);
     await inspector.getByLabel('Expression to preview').fill('price_net * 2');
     await inspector.getByRole('button', { name: 'Preview' }).click();
@@ -296,6 +311,9 @@ try {
   });
 
   await step('record_action (v2) + action_dialog generate one combined PDF', async () => {
+    // Record actions sit at the end of the Data tab.
+    const dataTab = page.getByRole('tab', { name: 'Data', exact: true });
+    if (await dataTab.count()) await dataTab.click();
     const action = await frameWith('Generate document…');
     await action.getByRole('button', { name: 'Generate document…' }).click();
     // Opened from the record preview, the dialog starts on its documents task.
@@ -305,7 +323,10 @@ try {
     await frameWith('Run Completed · 1 generated', 180_000);
     if (!(await dialog.getByRole('button', { name: 'Download documents.pdf' }).count())) throw new Error('no documents.pdf download');
     if (!(await dialog.getByRole('button', { name: 'Download report.json' }).count())) throw new Error('no report.json download');
-    await dialog.getByRole('button', { name: 'Close' }).click();
+    if (await dialog.getByRole('button', { name: /^(Close|Cancel)$/ }).count()) throw new Error('the frame renders its own close button');
+    // The host dialog owns the close control; the frame renders none.
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
   });
 
   await step('document run annotated the record', async () => {
@@ -315,6 +336,14 @@ try {
 
   await step('record_header_action checks the formulas', async () => {
     const header = await frameWith('Check formulas');
+    // Newer hosts offer header actions in the record's Actions menu, under a
+    // "More actions…" item; older ones mount them beside the toolbar.
+    const actions = page.getByRole('navigation', { name: 'Record' }).getByRole('button', { name: 'Actions', exact: true });
+    // Visibility inside the frame says nothing about the host popover around it.
+    if (!(await page.locator('iframe[title="formula-header-action"]').isVisible())) {
+      await actions.click();
+      await openIfPresent(page.getByRole('menu').getByRole('menuitem', { name: 'More actions…' }));
+    }
     await header.getByRole('button', { name: 'Check formulas' }).click();
     await page.getByText('2 valid formulas: price_gross, price_deposit.').waitFor({ timeout: 30_000 });
   });
@@ -355,17 +384,27 @@ try {
 
   await step('explorer_action lists the revision formulas', async () => {
     const toolbar = await frameWith('ƒ 2 formulas');
+    await openIfPresent(page.getByRole('button', { name: 'Extension actions', exact: true }));
     await toolbar.getByRole('button', { name: 'ƒ 2 formulas' }).click();
     await page.getByText(/price_gross = price_net \* \(1 \+ vat_rate\) · price_deposit = price_gross \* 0\.2/).waitFor({ timeout: 30_000 });
+    // Close the toolbar popover, if any, by clicking its backdrop; keys
+    // pressed in the focused frame never reach the host.
+    if (await page.getByRole('presentation').count()) await page.mouse.click(5, 5);
   });
 
   await step('explorer_row_action (v2) opens the dialog for one record', async () => {
     await page.getByRole('button', { name: `Record actions for ${alpha}` }).click();
-    await page.getByRole('menu').getByRole('button', { name: /extension/i }).click();
+    // The row menu mounts its extension frames when it opens. Newer hosts then
+    // show a "More actions…" item; older ones an extension button.
+    const menu = page.getByRole('menu');
+    const more = menu.getByRole('menuitem', { name: 'More actions…' }).or(menu.getByRole('button', { name: /extension/i }));
+    await more.first().click({ timeout: 30_000 });
     const row = await frameWith('Formulas and documents…');
     await row.getByRole('button').click();
     const dialog = await frameWith('1 selected record');
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    // The host dialog owns the close control; the frame renders none.
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
   });
 
   await step('explorer_bulk_action (v2) + action_dialog run the interactive operation', async () => {
@@ -373,6 +412,13 @@ try {
     await page.getByRole('button', { name: 'Select records' }).click();
     const boxes = page.getByRole('checkbox');
     for (let index = 1; index < (await boxes.count()); index += 1) await boxes.nth(index).check();
+    // Newer hosts put bulk actions in the selection's Actions menu, which
+    // mounts the frame when it opens; older hosts mount it below the toolbar.
+    const actions = page.getByRole('button', { name: 'Actions', exact: true });
+    if (await actions.count()) {
+      await actions.click();
+      await openIfPresent(page.getByRole('menu').getByRole('menuitem', { name: 'More actions…' }));
+    }
     const bulk = await frameWith(/Formulas and documents \(3\)…/);
     await bulk.getByRole('button').click();
     const dialog = await frameWith('3 selected records');
