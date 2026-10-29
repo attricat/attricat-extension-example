@@ -259,17 +259,18 @@ try {
     await app.getByText('evaluations').first().waitFor({ timeout: 60_000 });
   });
 
-  await step('route + navigation: document templates are edited with {{ marks }}', async () => {
+  await step('route + navigation: each document template opens its own page', async () => {
     await page.goto(`${WEB}/extensions/${EXTENSION}/document-templates`);
     const app = await frameWith('Summary sheet');
     if (!(await page.getByRole('link', { name: 'Document templates' }).count())) throw new Error('navigation entry missing');
     // The suite reuses one workspace: start from a clean slate.
-    const existing = app.getByRole('region', { name: 'Template Price sheet' });
-    if (await existing.count()) {
-      await existing.getByRole('button', { name: 'Delete template' }).click();
+    if (await app.getByRole('button', { name: 'Edit Price sheet' }).count()) {
+      await app.getByRole('button', { name: 'Edit Price sheet' }).click();
+      await app.getByRole('button', { name: 'Delete template' }).click();
       await app.getByText('Deleted Price sheet.').waitFor({ timeout: 30_000 });
     }
     await app.getByRole('button', { name: 'New template' }).click();
+    await app.getByRole('heading', { name: 'New template', level: 1 }).waitFor({ timeout: 10_000 });
     const created = app.getByRole('region', { name: 'New template' });
     await created.getByLabel('Template ID').fill('price-sheet');
     await created.getByLabel('Name').fill('Price sheet');
@@ -283,13 +284,15 @@ try {
     await created.getByText('Title: A {{ mark is not closed with }}.').waitFor({ timeout: 10_000 });
     await created.getByLabel('Title').fill('{{ title }}');
     await created.getByRole('button', { name: 'Create template' }).click();
-    await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
-    // A second save is version 2.
+    // Creating opens the new template's own page; a second save is version 2.
+    await app.getByRole('heading', { name: 'Price sheet', level: 1 }).waitFor({ timeout: 30_000 });
     const editor = app.getByRole('region', { name: 'Template Price sheet' });
     await editor.getByLabel('Body').fill(`E2E ${suffix}\n${await editor.getByLabel('Body').inputValue()}`);
     await editor.getByRole('button', { name: 'Save template' }).click();
-    await app.getByText('Saved Price sheet.').waitFor({ timeout: 30_000 });
-    await app.getByRole('region', { name: 'Template Price sheet' }).getByText('version 2').waitFor({ timeout: 10_000 });
+    await app.getByRole('region', { name: 'Template Price sheet' }).getByText('version 2').waitFor({ timeout: 30_000 });
+    await app.getByRole('button', { name: '← All templates' }).click();
+    const row = app.getByRole('row', { name: /Price sheet/ });
+    if (!/title, price_gross, price_deposit, colour\s*2/.test(await row.innerText())) throw new Error(await row.innerText());
   });
 
   await step('blueprint_detail_panel lists the validated formula', async () => {

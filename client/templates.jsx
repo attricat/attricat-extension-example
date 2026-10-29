@@ -1,5 +1,7 @@
-/* route: Document templates. Every template has its own embedded editor: a
- * title line and a body in which `{{ attribute_code }}` marks are replaced
+/* route: Document templates. A list page links to one page per template (and
+ * one for a new template) with its editor. The pages are screens of this
+ * frame's in-memory router: the host keeps the route's URL fixed and gives
+ * extensions no subpaths. A template is a title line and a body in which `{{ attribute_code }}` marks are replaced
  * with the record's saved values when a document is rendered, plus the
  * `{{ record.id }}`, `{{ record.fingerprint }}` and `{{ record.values }}`
  * marks. Saving goes through the save-template command, which validates the
@@ -81,7 +83,7 @@ const TemplateEditor = ({ attricat, template, onSaved, onDeleted, onDiscard }) =
         template: { id: draft.id.trim(), name: draft.name.trim(), title: draft.title, body: draft.body },
         expected_version: isNew ? null : template.version,
       });
-      onSaved(templates, `Saved ${draft.name.trim()}.`);
+      onSaved(templates, `Saved ${draft.name.trim()}.`, draft.id.trim());
     } catch (error) {
       setStatus({ error: error.message || 'The template could not be saved.' });
     }
@@ -99,11 +101,12 @@ const TemplateEditor = ({ attricat, template, onSaved, onDeleted, onDiscard }) =
   const field = (key) => `template-${template.id || 'new'}-${key}`;
   return (
     <section class="card stack" aria-label={isNew ? 'New template' : `Template ${template.name}`}>
-      <div class="row">
-        <h2 style="margin:0">{isNew ? 'New template' : template.name}</h2>
-        {!isNew && <span class="muted"><code>{template.id}</code> · version {template.version}</span>}
-        {template.builtin && <span class="badge">built-in</span>}
-      </div>
+      {!isNew && (
+        <div class="row">
+          <span class="muted"><code>{template.id}</code> · version {template.version}</span>
+          {template.builtin && <span class="badge">built-in</span>}
+        </div>
+      )}
       {isNew && (
         <label style={FIELD} for={field('id')}>
           <span>Template ID</span>
@@ -159,11 +162,44 @@ const TemplateEditor = ({ attricat, template, onSaved, onDeleted, onDiscard }) =
   );
 };
 
+const summary = (template) => {
+  const marks = [...parse(template.title).parts, ...parse(template.body).parts].filter((part) => part.mark);
+  return marks.length ? [...new Set(marks.map((part) => part.mark))].join(', ') : 'no marks';
+};
+
+const List = ({ templates, open }) => (
+  <>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>ID</th><th>Marks</th><th>Version</th><th><span class="muted">Actions</span></th></tr>
+      </thead>
+      <tbody>
+        {templates.map((template) => (
+          <tr key={template.id}>
+            <td>{template.name}{template.builtin && <> <span class="badge">built-in</span></>}</td>
+            <td><code>{template.id}</code></td>
+            <td>{summary(template)}</td>
+            <td>{template.version}</td>
+            <td>
+              <button type="button" class="secondary" aria-label={`Edit ${template.name}`} onClick={() => open({ id: template.id })}>Edit</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <div class="row"><button type="button" onClick={() => open({ id: null })}>New template</button></div>
+  </>
+);
+
+const NEW_TEMPLATE = { id: '', name: '', title: '{{ title }}', body: '' };
+
 const App = ({ attricat }) => {
   const [templates, setTemplates] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [creating, setCreating] = useState(false);
+  // `null` is the list page; `{ id }` a template's page (`id: null` a new one).
+  const [page, setPage] = useState(null);
+  const heading = useRef(null);
 
   const load = useCallback(() => {
     command(attricat, 'list-templates', {}).then(
@@ -172,37 +208,53 @@ const App = ({ attricat }) => {
     );
   }, [attricat]);
   useEffect(load, [load]);
+  // Move focus to the new page's heading, as a host page change would.
+  useEffect(() => heading.current?.focus(), [page?.id, page === null]);
 
-  const changed = (next, message) => {
-    setTemplates(next);
-    setCreating(false);
+  const open = (next, message = null) => {
     setNotice(message);
+    setError(null);
+    setPage(next);
   };
+  const template = page?.id ? templates?.find((item) => item.id === page.id) : null;
+  const title = page === null ? 'Document templates' : template ? template.name : 'New template';
 
   return (
     <main class="stack" style="max-width:960px;padding:16px 20px" aria-labelledby="templates-title">
-      <h1 id="templates-title" style="font-size:1.4rem;margin:0">Document templates</h1>
-      <p class="muted">
-        Templates for <strong>Generate documents</strong> in the record and Explorer actions. Type{' '}
-        <code>{'{{ attribute_code }}'}</code> where a record's saved value should appear. A run uses the
-        template version it was started with.
-      </p>
+      {page !== null && (
+        <nav aria-label="Breadcrumb">
+          <button type="button" class="secondary" onClick={() => open(null)}>← All templates</button>
+        </nav>
+      )}
+      <h1 id="templates-title" ref={heading} tabIndex={-1} style="font-size:1.4rem;margin:0;outline:none">{title}</h1>
+      {page === null && (
+        <p class="muted">
+          Templates for <strong>Generate documents</strong> in the record and Explorer actions. Type{' '}
+          <code>{'{{ attribute_code }}'}</code> where a record's saved value should appear. A run uses the
+          template version it was started with.
+        </p>
+      )}
       {error && <p class="error" role="alert">{error}</p>}
       {notice && <p class="ok" role="status">{notice}</p>}
       {!templates && !error && <p class="muted">Loading…</p>}
-      {templates?.map((template) => (
-        <TemplateEditor key={`${template.id}@${template.version}`} attricat={attricat} template={template} onSaved={changed} onDeleted={changed} />
-      ))}
-      {templates && (creating ? (
-        <TemplateEditor
-          attricat={attricat}
-          template={{ id: '', name: '', title: '{{ title }}', body: '' }}
-          onSaved={changed}
-          onDeleted={changed}
-          onDiscard={() => setCreating(false)}
-        />
+      {templates && page === null && <List templates={templates} open={open} />}
+      {templates && page !== null && (page.id && !template ? (
+        <p class="error" role="alert">This template no longer exists.</p>
       ) : (
-        <div class="row"><button type="button" onClick={() => { setNotice(null); setCreating(true); }}>New template</button></div>
+        <TemplateEditor
+          key={template ? `${template.id}@${template.version}` : 'new'}
+          attricat={attricat}
+          template={template ?? NEW_TEMPLATE}
+          onSaved={(next, message, id) => {
+            setTemplates(next);
+            open({ id }, message);
+          }}
+          onDeleted={(next, message) => {
+            setTemplates(next);
+            open(null, message);
+          }}
+          onDiscard={() => open(null)}
+        />
       ))}
     </main>
   );

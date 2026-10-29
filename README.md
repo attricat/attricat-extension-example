@@ -31,7 +31,7 @@ recalculated and written **in that same context**.
 | `attricat.annotations.write` | Tags checked records `formulas-checked`, and documented records `document-generated` with `last_document` metadata, from runs; the event handler records `last_recalculated` metadata with an annotation-only `attricat.command.v1` batch | `operation.rs`, `documents/`, `handler.rs`, `host.rs` |
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
-| `route` + `navigation` | **Document templates**: an embedded editor per template, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
+| `route` + `navigation` | **Document templates**: a list page and one page per template (in-frame screens; the host URL stays fixed) with its editor, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
 | `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_attribute_decoration` | ⚡ Computed badge on formula targets | `client/decoration.js` |
 | `record_action` (v2) | One-click recalculation followed by `attricat.refresh`, and **Generate document…** opening the host dialog | `client/record-action.js` |
@@ -117,7 +117,7 @@ hex digits of the captured content's SHA-256) and `{{ record.values }}` (every
 saved value, one `code: value` line each, body only). An empty title falls
 back to the record ID. The route embeds an editor per template that checks
 marks as you type, inserts them at the caret and previews the text with marks
-highlighted; `save-template` validates them again.
+highlighted; `save-template` validates them again. The list and each template's page are screens of the frame's in-memory router, because the host keeps a route's URL fixed and gives extensions no subpaths.
 
 Every save bumps the template's version. The dialog starts a run of the
 version it shows; the run rejects a version that changed meanwhile and
