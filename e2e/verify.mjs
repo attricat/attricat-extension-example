@@ -63,54 +63,48 @@ const scalar = (code, value, contextId) => ({ kind: 'scalar', attribute_code: co
 
 // ---------------------------------------------------------------- fixtures --
 const blueprintCode = `formula_e2e_${suffix}`;
-const definition = `format_version = 1
-code = "${blueprintCode}"
-name = "Formula e2e ${suffix}"
-kind = "record"
+/** `extraAttributes` are further items of the `attributes` list, which comes last. */
+const blueprintDefinition = (extraAttributes = '') => `format_version: 1
+code: ${blueprintCode}
+name: Formula e2e ${suffix}
+kind: record
 
-[views.dropdown_option]
-type = "dropdown_option"
-fields = ["title"]
+views:
+  dropdown_option:
+    type: dropdown_option
+    fields: [title]
+  table:
+    type: table
+    columns:
+      - field: title
+      - field: price_gross
+        label: Gross
+        renderer:
+          id: ${EXTENSION}.computed-number
+          version: 1
+          props: { precision: 2, unit: EUR }
 
-[views.table]
-type = "table"
+extensions:
+  ${EXTENSION}:
+    formulas:
+      price_gross: price_net * (1 + vat_rate)
+      price_deposit: price_gross * 0.2
 
-[[views.table.columns]]
-field = "title"
-
-[[views.table.columns]]
-field = "price_gross"
-label = "Gross"
-renderer = { id = "${EXTENSION}.computed-number", version = 1, props = { precision = 2, unit = "EUR" } }
-
-[[attributes]]
-code = "title"
-value_type = "string"
-
-[[attributes]]
-code = "price_net"
-value_type = "number"
-
-[[attributes]]
-code = "vat_rate"
-value_type = "number"
-
-[[attributes]]
-code = "price_gross"
-value_type = "number"
-
-[[attributes]]
-code = "price_deposit"
-value_type = "number"
-
-[[attributes]]
-code = "datasheet"
-value_type = "file"
-
-[extensions.${EXTENSION}.formulas]
-price_gross = "price_net * (1 + vat_rate)"
-price_deposit = "price_gross * 0.2"
-`;
+attributes:
+  - code: title
+    value_type: string
+  - code: price_net
+    value_type: number
+  - code: vat_rate
+    value_type: number
+  - code: price_gross
+    value_type: number
+  - code: price_deposit
+    value_type: number
+  - code: datasheet
+    value_type: file
+${extraAttributes}`;
+const definition = blueprintDefinition();
 
 const installation = (await api('GET', `/extensions/${EXTENSION}`)).installation;
 check('extension is enabled', installation.state === 'enabled', installation.state);
@@ -519,7 +513,7 @@ try {
 
   await step('blueprint_publish_check shows the formulas to expect', async () => {
     await api('POST', `/blueprints/${blueprint.id}/versions`, {
-      definition: `${definition}\n[[attributes]]\ncode = "note"\nvalue_type = "string"\n`,
+      definition: blueprintDefinition('  - code: note\n    value_type: string\n'),
     });
     await page.goto(`${WEB}/manage/blueprints/${blueprint.id}`);
     await page.getByRole('button', { name: 'Publish', exact: true }).click();

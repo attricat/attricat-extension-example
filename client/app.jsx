@@ -30,7 +30,7 @@ const FEATURES = [
 const Overview = () => (
   <>
     <p>
-      Computed numeric attributes declared in blueprint TOML, recalculated in the context where an
+      Computed numeric attributes declared in blueprint YAML, recalculated in the context where an
       input changes. Every part of this extension exists to show one piece of the{' '}
       <code>attricat:host@1.1.0</code> extension surface.
     </p>
@@ -170,17 +170,25 @@ const Runs = ({ attricat }) => {
 const Syntax = () => (
   <>
     <p>Formulas are immutable blueprint metadata. The key is the numeric target attribute code; the value is its expression.</p>
-    <pre aria-label="Example formula configuration"><code>{`[extensions.attricat-extension-example.formulas]
-price_gross = "price_net * (1 + vat_rate)"`}</code></pre>
+    <pre aria-label="Example formula configuration"><code>{`extensions:
+  attricat-extension-example:
+    formulas:
+      price_gross: price_net * (1 + vat_rate)`}</code></pre>
     <p>
       Expressions use numeric literals, numeric attribute codes, <code>+ - * /</code>, unary minus and
       parentheses. Cycles, self-references and non-numeric attributes are rejected. Rounding and units
       are configured per attribute in the blueprint editor.
     </p>
     <p>Show computed values in Explorer tables with the cell renderer:</p>
-    <pre><code>{`[[views.table.columns]]
-field = "price_gross"
-renderer = { id = "attricat-extension-example.computed-number", version = 1, props = { precision = 2, unit = "EUR" } }`}</code></pre>
+    <pre><code>{`views:
+  table:
+    type: table
+    columns:
+      - field: price_gross
+        renderer:
+          id: attricat-extension-example.computed-number
+          version: 1
+          props: { precision: 2, unit: EUR }`}</code></pre>
   </>
 );
 

@@ -35,9 +35,11 @@ not sufficient to validate host integration.
    whenever you add or change a contribution, command, or operation.
 5. The suite publishes a blueprint revision with:
 
-   ```toml
-   [extensions.attricat-extension-example.formulas]
-   price_gross = "price_net * (1 + vat_rate)"
+   ```yaml
+   extensions:
+     attricat-extension-example:
+       formulas:
+         price_gross: price_net * (1 + vat_rate)
    ```
 
    creates records on that exact revision, updates dependencies in a

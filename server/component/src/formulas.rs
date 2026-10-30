@@ -1,4 +1,4 @@
-//! Host-independent formula configuration: parsing the blueprint TOML, validating
+//! Host-independent formula configuration: parsing the blueprint YAML, validating
 //! it against the pinned revision, and evaluating against resolved values.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use attricat_extension_example_formula_core::Formula;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use yaml_rust2::{Yaml, YamlLoader};
 
 pub const EXTENSION_ID: &str = "attricat-extension-example";
 
@@ -41,7 +42,7 @@ pub struct FormulaConfig {
 }
 
 /// The per-revision formula index the server keeps in extension storage. Read
-/// by panels and decorations (which cannot run commands or parse TOML) and by
+/// by panels and decorations (which cannot run commands or parse YAML) and by
 /// interactive runs (which cannot read blueprints).
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct FormulaIndex {
@@ -108,19 +109,14 @@ impl AttributeSettings {
 }
 
 /// Formulas are part of the immutable blueprint definition. The host keeps the
-/// namespaced `[extensions.attricat-extension-example.formulas]` table, where
+/// namespaced `extensions.attricat-extension-example.formulas` mapping, where
 /// each key is a numeric target attribute code and each value its expression.
 pub fn load_formulas(blueprint: &BlueprintWithAttributes) -> Result<Vec<FormulaConfig>, String> {
-    let definition: toml::Value = blueprint
-        .blueprint
-        .definition
-        .parse()
+    let documents = YamlLoader::load_from_str(&blueprint.blueprint.definition)
         .map_err(|error| format!("Invalid blueprint definition: {error}"))?;
-    let Some(formulas) = definition
-        .get("extensions")
-        .and_then(|value| value.get(EXTENSION_ID))
-        .and_then(|value| value.get("formulas"))
-        .and_then(toml::Value::as_table)
+    let Some(Yaml::Hash(formulas)) = documents
+        .first()
+        .map(|definition| &definition["extensions"][EXTENSION_ID]["formulas"])
     else {
         return Ok(Vec::new());
     };
@@ -131,8 +127,11 @@ pub fn load_formulas(blueprint: &BlueprintWithAttributes) -> Result<Vec<FormulaC
         .collect();
     let mut configs = Vec::with_capacity(formulas.len());
     for (target_code, expression) in formulas {
+        let target_code = target_code
+            .as_str()
+            .ok_or_else(|| "Formula targets must be attribute codes.".to_owned())?;
         let target = by_code
-            .get(target_code.as_str())
+            .get(target_code)
             .ok_or_else(|| format!("Unknown formula target `{target_code}`."))?;
         require_numeric(target)?;
         let expression = expression
@@ -151,7 +150,7 @@ pub fn load_formulas(blueprint: &BlueprintWithAttributes) -> Result<Vec<FormulaC
         }
         configs.push(FormulaConfig {
             target_attribute_id: target.id.clone(),
-            target_code: target_code.clone(),
+            target_code: target_code.to_owned(),
             expression: expression.to_owned(),
             dependencies,
             dependency_codes,
@@ -352,9 +351,9 @@ mod tests {
     }
 
     #[test]
-    fn loads_formulas_from_namespaced_blueprint_toml() {
+    fn loads_formulas_from_namespaced_blueprint_yaml() {
         let formulas = load_formulas(&blueprint(
-            "[extensions.attricat-extension-example.formulas]\ngross = \"net * (1 + vat)\"\n",
+            "extensions:\n  attricat-extension-example:\n    formulas:\n      gross: net * (1 + vat)\n",
         ))
         .unwrap();
         assert_eq!(formulas.len(), 1);
@@ -367,7 +366,7 @@ mod tests {
     #[test]
     fn chained_formulas_follow_their_inputs() {
         let formulas = load_formulas(&blueprint(
-            "[extensions.attricat-extension-example.formulas]\na_deposit = \"gross / 10\"\ngross = \"net * 2\"\n",
+            "extensions:\n  attricat-extension-example:\n    formulas:\n      a_deposit: gross / 10\n      gross: net * 2\n",
         ))
         .unwrap();
         let order: Vec<_> = formulas
@@ -378,19 +377,19 @@ mod tests {
     }
 
     #[test]
-    fn blueprints_without_the_table_have_no_formulas() {
+    fn blueprints_without_the_mapping_have_no_formulas() {
         assert!(load_formulas(&blueprint("")).unwrap().is_empty());
     }
 
     #[test]
     fn rejects_unknown_non_numeric_self_and_cyclic_formulas() {
-        let table = "[extensions.attricat-extension-example.formulas]\n";
+        let table = "extensions:\n  attricat-extension-example:\n    formulas:\n";
         for body in [
-            "gross = \"missing * 2\"",
-            "gross = \"title * 2\"",
-            "title = \"net\"",
-            "gross = \"gross + 1\"",
-            "gross = \"net\"\nnet = \"gross\"",
+            "      gross: missing * 2",
+            "      gross: title * 2",
+            "      title: net",
+            "      gross: gross + 1",
+            "      gross: net\n      net: gross",
         ] {
             assert!(
                 load_formulas(&blueprint(&format!("{table}{body}\n"))).is_err(),
@@ -402,7 +401,7 @@ mod tests {
     #[test]
     fn the_index_records_load_errors_instead_of_failing() {
         let index = FormulaIndex::from_blueprint(&blueprint(
-            "[extensions.attricat-extension-example.formulas]\ngross = \"(\"\n",
+            "extensions:\n  attricat-extension-example:\n    formulas:\n      gross: '('\n",
         ));
         assert!(index.formulas.is_empty());
         assert!(index.error.is_some());

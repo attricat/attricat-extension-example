@@ -6,9 +6,11 @@ two features end to end, **context-aware computed numeric attributes** and
 them to show nearly every part of the extension system in a single release on
 the **`attricat:host@1.1.0`** ABI.
 
-```toml
-[extensions.attricat-extension-example.formulas]
-price_gross = "price_net * (1 + vat_rate)"
+```yaml
+extensions:
+  attricat-extension-example:
+    formulas:
+      price_gross: price_net * (1 + vat_rate)
 ```
 
 When `price_net` or `vat_rate` changes in a context, `price_gross` is
@@ -146,7 +148,7 @@ the run itself still completes.
 
 The index lets read-only panels (which cannot call commands) and interactive
 runs (which cannot read blueprints) work with validated formulas without
-parsing TOML themselves. A revision is indexed the first time one of its
+parsing YAML themselves. A revision is indexed the first time one of its
 records is updated or inspected.
 
 ### Client contributions
