@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -23,6 +23,7 @@
     "client.commands",
     "client.events",
     "client.navigation",
+    "client.record_tab",
     "client.notification",
     "client.refresh",
     "client.record_action",
@@ -932,9 +933,16 @@
     {
       "id": "formula-inspector",
       "version": 1,
-      "kind": "embedded",
+      "kind": "tab",
       "artifact": "inspector",
-      "outlet": "record_preview_panel"
+      "outlet": "record_tab",
+      "title": "Formulas",
+      "icon": "calculator",
+      "translations": {
+        "pl": {
+          "title": "Formuły"
+        }
+      }
     },
     {
       "id": "recalculate-dialog",

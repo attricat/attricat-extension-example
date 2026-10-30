@@ -34,7 +34,7 @@ recalculated and written **in that same context**.
 | `logging.write` | Operation failures are logged; the host redacts persisted diagnostics | `operation.rs` |
 | `route` + `navigation` | **Formula workbench** app: feature tour, activity, your runs, syntax | `client/app.jsx` |
 | `route` + `navigation` | **Document templates**: a list page and one page per template (in-frame screens; the host URL stays fixed) with its editor, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
-| `record_preview_panel` | Formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
+| `record_tab` | A **Formulas** tab on product records: formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_field_notes` | One command describes a record's fields: a **Computed** badge (whose action opens the recalculation dialog) and the formula on each target, **Feeds …** on each input, and the last generated document beneath each file; the host renders them | `handler.rs` (`describe-fields`) |
 | `record_action` (action) | **Recalculate formulas** calls a command whose notification and `refresh` the host applies; **Generate document…** opens the documents dialog | `manifest.json`, `handler.rs` |
 | `explorer_row_action` / `explorer_bulk_action` (action) | **Recalculate formulas…** and **Generate documents…** open the matching dialog for the row or selection | `manifest.json` |

@@ -319,17 +319,25 @@ try {
     await page.getByRole('dialog').waitFor({ state: 'detached' });
   });
 
-  await step('record_preview_panel evaluates, previews and recalculates', async () => {
-    // Newer hosts give record preview panels an Extensions tab; older ones a
-    // drawer behind an "Extension contributions" button.
-    const tab = page.getByRole('tab', { name: 'Extensions', exact: true });
-    await (await tab.count() ? tab : page.getByRole('button', { name: 'Extension contributions' })).click();
+  await step('record_tab evaluates, previews and recalculates', async () => {
+    await page.getByRole('tab', { name: 'Formulas', exact: true }).click();
     const inspector = await frameWith(/Result\s+122\.99 EUR/);
     await inspector.getByLabel('Expression to preview').fill('price_net * 2');
     await inspector.getByRole('button', { name: 'Preview' }).click();
     await inspector.getByText('= 199.98').waitFor({ timeout: 30_000 });
     await inspector.getByRole('button', { name: 'Recalculate formulas' }).click();
     await frameWith('up to date');
+    // The open tab is part of the record's address, so a link opens it. A
+    // second page keeps this one's selected context for the next steps.
+    await page.waitForURL((url) => url.searchParams.get('tab') === `${EXTENSION}:formula-inspector`);
+    const linked = await page.context().newPage();
+    try {
+      await linked.goto(page.url());
+      await linked.getByRole('tab', { name: 'Formulas', exact: true, selected: true }).waitFor({ timeout: 30_000 });
+      await frameWith('Computed attributes', 90_000, linked);
+    } finally {
+      await linked.close();
+    }
   });
 
   await step('record_action + action_dialog generate one combined PDF', async () => {

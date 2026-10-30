@@ -1,4 +1,4 @@
-/* record_preview_panel: every formula of the record's revision evaluated in the
+/* record_tab (Formulas): every formula of the record's revision evaluated in the
  * selected context, an expression preview, and recalculation. Demonstrates
  * `attricat.command`, `attricat.refresh`, `attricat.notify` and context events. */
 import { command, el, formatNumber, mountRenderer } from './lib.js';

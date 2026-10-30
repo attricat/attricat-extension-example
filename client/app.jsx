@@ -15,7 +15,7 @@ const FEATURES = [
   ['Extension storage', 'formula index and activity log shared by server and panels', 'storage.extension'],
   ['Event contract', 'publishes plugin.attricat-extension-example.formula_recalculated.v1', 'event_contracts · events.emit'],
   ['Route + navigation', 'this workbench, and Document templates for versioned document templates', 'route · navigation'],
-  ['Record preview panel', 'formulas evaluated in the selected context, preview, recalculate', 'record_preview_panel'],
+  ['Record tab', 'a Formulas tab: formulas evaluated in the selected context, preview, recalculate', 'record_tab'],
   ['Field notes', 'Computed badges, formulas and Feeds notes beside fields; the last document beneath files', 'record_field_notes · record_attribute_action'],
   ['Record actions', 'host-rendered buttons: a recalculation command whose result the host shows and refreshes, and a documents dialog', 'record_action · action.invoke'],
   ['Selection actions + dialogs', 'row and bulk menu items open the recalculation or documents dialog, which starts its run', 'explorer_row_action · explorer_bulk_action · action_dialog'],
