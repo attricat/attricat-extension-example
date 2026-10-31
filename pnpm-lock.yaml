@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@attricat/extension':
-        specifier: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-extension-0.1.1.tgz
-        version: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-extension-0.1.1.tgz(@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8))(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)(vite@7.3.7)
+        specifier: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-extension-0.1.2.tgz
+        version: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-extension-0.1.2.tgz(@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8))(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)(vite@7.3.7)
       '@attricat/ui-kit':
-        specifier: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz
-        version: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
+        specifier: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz
+        version: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
       preact:
         specifier: ^10.26.4
         version: 10.29.8
@@ -33,9 +33,9 @@ importers:
 
 packages:
 
-  '@attricat/extension@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-extension-0.1.1.tgz':
-    resolution: {integrity: sha512-1UZuz+kPbmT9SG8q7kfETyYgzkTLWyMOECFwJyOlr5SE9Lmh2EvmQJJI8ZxsJ0qNKQR1dYG19fmoHK19oKp+Gg==, tarball: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-extension-0.1.1.tgz}
-    version: 0.1.1
+  '@attricat/extension@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-extension-0.1.2.tgz':
+    resolution: {integrity: sha512-HXdikujee4oS8LBU09i8llMuFRnoY6LPvu4U5bjF5teY6BdHNZaNFhTrVMJO5rwJ1uRZgQmUNkpJ0KqRzEHHHg==, tarball: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-extension-0.1.2.tgz}
+    version: 0.1.2
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -46,8 +46,8 @@ packages:
       vite:
         optional: true
 
-  '@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz':
-    resolution: {integrity: sha512-FncyKNXdNV9/YDUe8+1wAN56VQpt2OR14nq1/lTa11SW3MDIkZj6h1z47x1585D0SJaYKJzklpbtOILtc0jYTQ==, tarball: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz}
+  '@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz':
+    resolution: {integrity: sha512-Ba/+IUz1uuO7W96e4YVi8AUdBM4qBh8qInqZEnDPVAuAGOjkmwjJL3eKTpctRPFqTtC070zYhDNLvvpPG4wltQ==, tarball: https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz}
     version: 1.0.0
     engines: {node: '>=24'}
     peerDependencies:
@@ -698,9 +698,9 @@ packages:
 
 snapshots:
 
-  '@attricat/extension@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-extension-0.1.1.tgz(@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8))(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)(vite@7.3.7)':
+  '@attricat/extension@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-extension-0.1.2.tgz(@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8))(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)(vite@7.3.7)':
     dependencies:
-      '@attricat/ui-kit': https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
+      '@attricat/ui-kit': https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
       '@quilted/threads': 4.1.0(@preact/signals-core@1.14.5)
       '@remote-dom/core': 1.12.1(@preact/signals-core@1.14.5)(preact@10.29.8)
       '@remote-dom/preact': 1.3.1(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
@@ -711,7 +711,7 @@ snapshots:
       - '@preact/signals'
       - '@preact/signals-core'
 
-  '@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.1/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)':
+  '@attricat/ui-kit@https://github.com/attricat/attricat-extension-sdk/releases/download/v0.1.2/attricat-ui-kit-1.0.0.tgz(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)':
     dependencies:
       '@remote-dom/core': 1.12.1(@preact/signals-core@1.14.5)(preact@10.29.8)
       '@remote-dom/preact': 1.3.1(@preact/signals-core@1.14.5)(@preact/signals@1.3.4(preact@10.29.8))(preact@10.29.8)
