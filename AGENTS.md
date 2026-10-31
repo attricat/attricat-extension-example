@@ -8,8 +8,10 @@ reference extension and should showcase as much of the ABI and as many
 extension points as it reasonably can; add new surfaces here rather than in a
 separate extension. The component targets the `outcome-extension` world
 (1.1 `event-handler`, `command-handler` and `deferrable-operations`). Copy WIT
-updates from the host's `crates/extension-runtime/wit-host/`; never edit the
-vendored file by hand.
+from the [attricat-extension-sdk](https://github.com/attricat/attricat-extension-sdk)
+`wit/` directory: `server/component/wit/attricat-extension.wit` is its
+`attricat-host-1.1.0.wit` verbatim. Never copy the core repository's
+unreleased `wit-host/`, and never edit the vendored file by hand.
 `just build-server` fails if the component imports anything other than
 `attricat:host@1.1.0`.
 
