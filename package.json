@@ -3,14 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-client.mjs",
-    "e2e": "node e2e/verify.mjs"
+    "build": "node scripts/build-client.mjs && vite build",
+    "e2e": "node e2e/verify.mjs",
+    "typecheck": "tsc"
   },
   "dependencies": {
-    "preact": "^10.26.4"
+    "preact": "^10.26.4",
+    "@attricat/extension": "link:../attricat-extension-sdk/packages/extension",
+    "@attricat/ui-kit": "link:../attricat-extension-sdk/packages/ui-kit"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
-    "esbuild": "^0.25.2"
+    "esbuild": "^0.25.2",
+    "vite": "7.3.7",
+    "typescript": "6.0.3"
   }
 }

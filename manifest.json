@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -42,7 +42,8 @@
     "client.blueprint_panel",
     "client.blueprint_publish_check",
     "client.audit_event_panel",
-    "client.record_field_notes"
+    "client.record_field_notes",
+    "client.attribute_editor"
   ],
   "artifacts": [
     {
@@ -51,58 +52,59 @@
       "path": "dist/server.wasm"
     },
     {
+      "id": "ui",
+      "kind": "client_native",
+      "path": "dist/ui.js",
+      "ui_kit": "^1.0"
+    },
+    {
       "id": "app",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/app.js"
     },
     {
       "id": "inspector",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/inspector.js"
     },
     {
       "id": "recalculate-dialog",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/recalculate-dialog.js"
     },
     {
       "id": "documents-dialog",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/documents-dialog.js"
     },
     {
-      "id": "attribute-settings",
-      "kind": "client_component",
-      "path": "dist/attribute-settings.js"
-    },
-    {
       "id": "blueprint-panel",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/blueprint-panel.js"
     },
     {
       "id": "health-card",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/health-card.js"
     },
     {
       "id": "blueprint-summary",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/blueprint-summary.js"
     },
     {
       "id": "publish-check",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/publish-check.js"
     },
     {
       "id": "audit-panel",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/audit-panel.js"
     },
     {
       "id": "templates",
-      "kind": "client_component",
+      "kind": "client_frame",
       "path": "dist/templates.js"
     }
   ],
@@ -1202,8 +1204,26 @@
       "id": "formula-settings",
       "version": 1,
       "kind": "embedded",
-      "artifact": "attribute-settings",
+      "artifact": "ui",
       "outlet": "blueprint_attribute_configuration"
+    },
+    {
+      "id": "formula-editor",
+      "version": 1,
+      "kind": "editor",
+      "artifact": "ui",
+      "outlet": "attribute_editor",
+      "title": "Formula",
+      "translations": {
+        "pl": {
+          "title": "Formuła"
+        }
+      },
+      "editor": {
+        "value_types": [
+          "string"
+        ]
+      }
     },
     {
       "id": "formula-blueprint-panel",

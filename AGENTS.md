@@ -13,6 +13,18 @@ vendored file by hand.
 `just build-server` fails if the component imports anything other than
 `attricat:host@1.1.0`.
 
+## Client UI
+
+Most client contributions are Frame UI (`client_frame` artifacts built by
+`scripts/build-client.mjs`). The blueprint attribute settings
+(`formula-settings`) and the formula attribute editor (`formula-editor`) are
+Native UI: Preact components in `client/native/` composed from the Attricat UI
+kit and built by the SDK's Vite preset into `dist/ui.js` with its
+`ui.js.build.json` record. The SDK lives in the sibling
+`../attricat-extension-sdk` checkout, which `package.json` links; build it
+first (`pnpm install && pnpm build` there). `pnpm typecheck` checks the native
+sources.
+
 ## Extension verification
 
 Test this extension against a **running Attricat development server that

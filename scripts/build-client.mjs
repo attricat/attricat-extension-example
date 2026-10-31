@@ -1,4 +1,4 @@
-// Bundles every client contribution into one self-contained ES module per
+// Bundles every Frame UI contribution into one self-contained ES module per
 // manifest artifact. Attricat imports each artifact into its own opaque-origin
 // iframe with network access denied, so nothing may be imported at runtime.
 import { readFile } from 'node:fs/promises';
@@ -7,7 +7,7 @@ import { build } from 'esbuild';
 
 const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
 const entryPoints = {};
-for (const artifact of manifest.artifacts.filter((item) => item.kind === 'client_component')) {
+for (const artifact of manifest.artifacts.filter((item) => item.kind === 'client_frame')) {
   const source = [`client/${artifact.id}.jsx`, `client/${artifact.id}.js`].find(existsSync);
   if (!source) throw new Error(`No client source for artifact '${artifact.id}'`);
   entryPoints[artifact.path.replace(/^dist\//, '').replace(/\.js$/, '')] = source;

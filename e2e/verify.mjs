@@ -292,12 +292,79 @@ try {
     await frameWith(/price_deposit ← price_gross\s*chained/);
   });
 
-  await step('blueprint_attribute_configuration edits rounding', async () => {
+  await step('blueprint_attribute_configuration edits rounding in native UI', async () => {
     await page.goto(`${WEB}/manage/blueprints/${blueprint.id}/revisions/${blueprint.version}/new`);
-    const editor = await frameWith('price_net * (1 + vat_rate)');
-    await editor.getByLabel('Decimal places').selectOption('2');
-    await editor.getByRole('button', { name: 'Save' }).click();
-    await editor.getByText('Saved for this revision.').waitFor({ timeout: 60_000 });
+    // Native UI is drawn in Attricat's own page, not in a frame.
+    const settings = page.getByRole('region').filter({ hasText: 'price_net * (1 + vat_rate)' });
+    await settings.waitFor({ timeout: 90_000 });
+    for (const frame of page.frames())
+      if (frame !== page.mainFrame() && (await frame.content().catch(() => '')).includes('price_net * (1 + vat_rate)'))
+        throw new Error('the settings were drawn in a frame');
+    await settings.getByRole('combobox', { name: 'Decimal places' }).click();
+    await page.getByRole('option', { name: '2 decimals' }).click();
+    await settings.getByRole('button', { name: 'Save' }).click();
+    await settings.getByText('Saved for this revision.').waitFor({ timeout: 60_000 });
+  });
+
+  await step('attribute_editor: the formula editor suggests, saves on Enter and restores on Escape', async () => {
+    const editorCode = `formula_editor_e2e_${suffix}`;
+    const created = await api('POST', '/blueprints', {
+      definition: `format_version: 1
+code: ${editorCode}
+name: Formula editor e2e ${suffix}
+kind: record
+views:
+  dropdown_option:
+    type: dropdown_option
+    fields: [title]
+  detail:
+    type: stack
+    children:
+      - {type: field, field: title}
+      - type: field
+        field: margin_formula
+        editor: {id: formula-editor, version: 1}
+attributes:
+  - code: title
+    value_type: string
+  - code: price_net
+    value_type: number
+  - code: vat_rate
+    value_type: number
+  - code: margin_formula
+    value_type: string
+`,
+    });
+    const editorBlueprint = created.blueprint ?? created;
+    await api('POST', `/blueprints/${editorBlueprint.id}/versions/${editorBlueprint.version}/publish`);
+    const record = (await api('POST', '/v1/records', {
+      blueprint: { code: editorCode, version: editorBlueprint.version },
+      values: [scalar('title', 'Editor', defaultContext.id)],
+    })).id;
+    await page.goto(`${WEB}/records/${record}`);
+    const field = page.getByRole('group', { name: 'margin formula' });
+    const input = field.getByRole('combobox', { name: 'margin formula' });
+    await input.waitFor({ timeout: 90_000 });
+    await input.click();
+    await input.pressSequentially('price_n', { delay: 30 });
+    await page.getByRole('option', { name: 'price_net' }).click();
+    await input.pressSequentially(' * (1 + vat_rate)', { delay: 20 });
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/v1/records/${record}`));
+    await page.waitForTimeout(400);
+    await input.press('Enter');
+    if ((await saved).status() !== 200) throw new Error('the formula was not saved');
+    const values = await api('GET', `/records/${record}/values/current`);
+    const stored = values.find((value) => value.value === 'price_net * (1 + vat_rate)');
+    if (!stored) throw new Error(`stored values: ${JSON.stringify(values.map((value) => value.value))}`);
+    // An unknown name is flagged, and Escape restores the saved formula.
+    await input.pressSequentially(' + bogus', { delay: 20 });
+    await field.getByText('Unknown attribute: bogus').waitFor({ timeout: 10_000 });
+    await input.press('Escape');
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('input')].some((element) => element.value === 'price_net * (1 + vat_rate)'),
+      null,
+      { timeout: 10_000 },
+    );
   });
 
   await step('data_health_card shows counters', async () => {

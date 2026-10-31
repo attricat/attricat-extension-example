@@ -19,9 +19,11 @@ test:
 
 check: fmt test
 
-# Every client contribution is bundled into one self-contained ES module per
-# manifest artifact (scripts/build-client.mjs). Attricat imports each into its
-# own sandboxed, opaque-origin iframe and calls mount(root, attricat).
+# Frame UI: one self-contained ES module per client_frame artifact
+# (scripts/build-client.mjs), which Attricat imports into its own sandboxed,
+# opaque-origin iframe and calls mount(root, attricat). Native UI: the SDK's
+# Vite preset builds dist/ui.js, the one Worker for every client_native
+# contribution, and records the UI kit version beside it.
 build-client:
   pnpm run build
 
@@ -54,7 +56,8 @@ pack: build
   mkdir -p {{stage_dir}}
   cp manifest.json README.md {{stage_dir}}/
   cp -R assets {{stage_dir}}/
-  files=$(node -p "require('./manifest.json').artifacts.map(a => a.path).join(' ')")
+  # A native artifact travels with the build record the installer checks.
+  files=$(node -p "require('./manifest.json').artifacts.flatMap(a => a.kind === 'client_native' ? [a.path, a.path + '.build.json'] : [a.path]).join(' ')")
   for file in $files; do mkdir -p "{{stage_dir}}/$(dirname "$file")"; cp "$file" "{{stage_dir}}/$file"; done
   rm -f {{archive}}
   (cd {{stage_dir}} && tar -cf - manifest.json README.md assets $files) | zstd -q -o {{archive}}
