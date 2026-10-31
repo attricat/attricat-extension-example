@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -69,11 +69,6 @@
       "id": "documents-dialog",
       "kind": "client_component",
       "path": "dist/documents-dialog.js"
-    },
-    {
-      "id": "table-cell",
-      "kind": "client_component",
-      "path": "dist/table-cell.js"
     },
     {
       "id": "attribute-settings",
@@ -1174,9 +1169,34 @@
     {
       "id": "attricat-extension-example.computed-number",
       "version": 1,
-      "kind": "embedded",
-      "artifact": "table-cell",
-      "outlet": "explorer_table_cell"
+      "kind": "cell",
+      "outlet": "explorer_table_cell",
+      "cell": {
+        "value_types": [
+          "number",
+          "integer"
+        ],
+        "props": {
+          "precision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "unit": {
+            "type": "string",
+            "max_length": 16
+          }
+        },
+        "display": {
+          "type": "number",
+          "precision": {
+            "prop": "precision"
+          },
+          "unit": {
+            "prop": "unit"
+          }
+        }
+      }
     },
     {
       "id": "formula-settings",
@@ -1219,20 +1239,6 @@
       "kind": "panel",
       "artifact": "audit-panel",
       "outlet": "audit_event_panel"
-    }
-  ],
-  "cell_renderers": [
-    {
-      "id": "attricat-extension-example.computed-number",
-      "version": 1,
-      "value_types": [
-        "number",
-        "integer"
-      ],
-      "allowed_props": [
-        "precision",
-        "unit"
-      ]
     }
   ],
   "record_field_notes": {

@@ -83,6 +83,12 @@ views:
           id: ${EXTENSION}.computed-number
           version: 1
           props: { precision: 2, unit: EUR }
+      - field: price_net
+        label: Net
+        renderer:
+          id: ${EXTENSION}.computed-number
+          version: 1
+          props: { unit: net }
 
 extensions:
   ${EXTENSION}:
@@ -439,18 +445,14 @@ try {
     }
   });
 
-  await step('explorer_table_cell renders computed-number with props', async () => {
-    // The host falls back to its built-in cell when a renderer frame does not
-    // start within 1.5 s, which a busy dev machine can miss; reload to retry.
-    for (let attempt = 1; ; attempt += 1) {
-      await page.goto(`${WEB}/?blueprint=${blueprintCode}&version=${blueprint.version}&context=${context.code}`);
-      try {
-        await frameWith(/55\.00\s*EUR/, 30_000);
-        return;
-      } catch (error) {
-        if (attempt === 3) throw error;
-      }
-    }
+  await step('explorer_table_cell draws the declared computed-number cell', async () => {
+    // The host draws the cell from the manifest's declaration, so its text is
+    // in the page itself rather than in an extension frame.
+    await page.goto(`${WEB}/?blueprint=${blueprintCode}&version=${blueprint.version}&context=${context.code}`);
+    const table = page.getByRole('table');
+    await table.getByText('55.00 EUR', { exact: true }).waitFor({ timeout: 30_000 });
+    // Without a precision prop the value keeps its own decimals.
+    await table.getByText('99.99 net', { exact: true }).first().waitFor({ timeout: 30_000 });
   });
 
   await step('explorer_action lists the revision formulas', async () => {

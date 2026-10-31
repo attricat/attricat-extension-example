@@ -39,7 +39,7 @@ recalculated and written **in that same context**.
 | `record_action` (action) | **Recalculate formulas** calls a command whose notification and `refresh` the host applies; **Generate document…** opens the documents dialog | `manifest.json`, `handler.rs` |
 | `explorer_row_action` / `explorer_bulk_action` (action) | **Recalculate formulas…** and **Generate documents…** open the matching dialog for the row or selection | `manifest.json` |
 | `action_dialog` | Two dialogs, one per task: recalculate formulas or generate documents; each starts, follows and cancels runs and downloads outputs; the host renders the title and close control | `client/*-dialog.js`, `client/dialog-*.js` |
-| `explorer_table_cell` + `cell_renderers` | `computed-number` renderer with `precision`/`unit` props | `client/table-cell.js` |
+| `explorer_table_cell` (`cell`) | `computed-number`: a declarative cell the host draws for number and integer table columns, with optional `precision` (0–6 decimal places) and `unit` props; no frame or extension code runs per cell | `manifest.json` |
 | `blueprint_attribute_configuration` | Rounding/unit editor in the blueprint editor | `client/attribute-settings.js` |
 | `blueprint_detail_panel` (panel) | The revision's validated formulas | `client/blueprint-panel.js` |
 | `data_health_card` (panel) | Evaluation, write, error and run counters | `client/health-card.js` |
@@ -200,7 +200,7 @@ in [AGENTS.md](AGENTS.md):
    ```
 
 `e2e/verify.mjs` creates its own context, blueprint revision (with a chained
-formula table, a file attribute and a `computed-number` column), records and a
+formula table, a file attribute and two `computed-number` columns), records and a
 datasheet upload, then checks every server feature and every UI contribution
 listed above in Chromium. File panels appear only beneath read-only file
 values, so that check signs in as the server's sample viewer.

@@ -19,7 +19,7 @@ const FEATURES = [
   ['Field notes', 'Computed badges, formulas and Feeds notes beside fields; the last document beneath files', 'record_field_notes · record_attribute_action'],
   ['Record actions', 'host-rendered buttons: a recalculation command whose result the host shows and refreshes, and a documents dialog', 'record_action · action.invoke'],
   ['Selection actions + dialogs', 'row and bulk menu items open the recalculation or documents dialog, which starts its run', 'explorer_row_action · explorer_bulk_action · action_dialog'],
-  ['Table cell renderer', 'computed-number with precision/unit props', 'explorer_table_cell · cell_renderers'],
+  ['Table cell', 'computed-number: the host draws number and integer columns with optional precision (0–6) and unit props', 'explorer_table_cell · cell'],
   ['Attribute settings', 'rounding/unit editor in the blueprint editor', 'blueprint_attribute_configuration'],
   ['Read-only panels', 'blueprint formulas, health counters', 'blueprint_detail_panel · data_health_card'],
   ['Header and toolbar actions', 'menu items calling commands: check a record\'s formulas; list a revision\'s formulas', 'record_header_action · explorer_action'],
@@ -179,7 +179,10 @@ const Syntax = () => (
       parentheses. Cycles, self-references and non-numeric attributes are rejected. Rounding and units
       are configured per attribute in the blueprint editor.
     </p>
-    <p>Show computed values in Explorer tables with the cell renderer:</p>
+    <p>
+      Show number and integer values in Explorer tables with the <code>computed-number</code> cell, which
+      Attricat draws itself; <code>precision</code> (0–6 decimal places) and <code>unit</code> are optional:
+    </p>
     <pre><code>{`views:
   table:
     type: table
