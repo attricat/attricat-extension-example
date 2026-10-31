@@ -20,10 +20,10 @@ Most client contributions are Frame UI (`client_frame` artifacts built by
 (`formula-settings`) and the formula attribute editor (`formula-editor`) are
 Native UI: Preact components in `client/native/` composed from the Attricat UI
 kit and built by the SDK's Vite preset into `dist/ui.js` with its
-`ui.js.build.json` record. The SDK lives in the sibling
-`../attricat-extension-sdk` checkout, which `package.json` links; build it
-first (`pnpm install && pnpm build` there). `pnpm typecheck` checks the native
-sources.
+`ui.js.build.json` record. `package.json` installs the SDK packages from an
+[attricat-extension-sdk](https://github.com/attricat/attricat-extension-sdk)
+release; to try SDK changes, switch both to `link:` paths to a built local
+checkout. `pnpm typecheck` checks the native sources.
 
 ## Extension verification
 

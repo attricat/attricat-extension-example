@@ -204,3 +204,7 @@ formula table, a file attribute and two `computed-number` columns), records and 
 datasheet upload, then checks every server feature and every UI contribution
 listed above in Chromium. File panels appear only beneath read-only file
 values, so that check signs in as the server's sample viewer.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
