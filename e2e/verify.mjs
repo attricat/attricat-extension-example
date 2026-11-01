@@ -530,7 +530,7 @@ attributes:
   });
 
   await step('explorer_row_action opens the recalculation dialog for one record', async () => {
-    await page.getByRole('button', { name: `Record actions for ${alpha}` }).click();
+    await page.getByRole('button', { name: 'Record actions for Alpha' }).click();
     await page.getByRole('menu').getByRole('menuitem', { name: 'Recalculate formulas…' }).click();
     await frameWith('1 selected record');
     // The host dialog owns the close control; the frame renders none.
