@@ -20,6 +20,8 @@ export const FormulaEditor = () => {
   const text = typeof editor.value === 'string' ? editor.value : '';
 
   useEffect(() => {
+    // A record being entered has no ID yet, so there is nothing to suggest from.
+    if (!editor.recordId) return;
     void (attricat.request(`/api/v1/records/${editor.recordId}`) as Promise<RecordResponse>).then((record) =>
       setCodes(
         (record.blueprint?.attributes ?? [])
