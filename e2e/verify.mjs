@@ -323,7 +323,7 @@ views:
       - {type: field, field: title}
       - type: field
         field: margin_formula
-        editor: {id: formula-editor, version: 1}
+        editor: {extension_id: attricat-extension-example, id: formula-editor, version: 1}
 attributes:
   - code: title
     value_type: string
@@ -365,6 +365,23 @@ attributes:
       null,
       { timeout: 10_000 },
     );
+
+    // The same editor draws the field while a new record is being entered,
+    // and what it proposes is submitted with the form.
+    await page.goto(`${WEB}/records/new?blueprint=${editorCode}`);
+    const newField = page.getByRole('group', { name: 'margin formula' });
+    const newInput = newField.getByRole('combobox', { name: 'margin formula' });
+    await newInput.waitFor({ timeout: 90_000 });
+    await newInput.fill('price_net * 2');
+    await newInput.blur();
+    await page.getByRole('textbox', { name: 'title' }).fill(`New ${suffix}`);
+    await page.getByRole('button', { name: 'Create record', exact: true }).click();
+    await page.waitForURL(/\/records\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    const newRecord = page.url().match(/records\/([0-9a-f-]{36})/)[1];
+    const newValues = await api('GET', `/records/${newRecord}/values/current`);
+    if (!newValues.some((value) => value.value === 'price_net * 2')) {
+      throw new Error(`new record values: ${JSON.stringify(newValues.map((value) => value.value))}`);
+    }
   });
 
   await step('data_health_card shows counters', async () => {
