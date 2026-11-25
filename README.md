@@ -4,7 +4,7 @@
 two features end to end, **context-aware computed numeric attributes** and
 **PDF document generation** for a record or an Explorer selection, and uses
 them to show nearly every part of the extension system in a single release on
-the **`attricat:host@1.1.0`** ABI.
+the **`attricat:host@1.2.0`** ABI.
 
 ```yaml
 extensions:
@@ -20,7 +20,8 @@ recalculated and written **in that same context**.
 
 | Surface | How the extension uses it | Code |
 | --- | --- | --- |
-| One component, 1.1 world | One `server.wasm` exports `event-handler`, `command-handler` and `deferrable-operations` (`outcome-extension`) | `server/component/src/lib.rs` |
+| One component, 1.2 world | One `server.wasm` exports `event-handler`, `command-handler`, `deferrable-operations` and `webhook-receiver` (`webhook-extension`) | `server/component/src/lib.rs` |
+| `server.webhooks` + `secrets.read` | **External values**: an external system pushes `{record_id, context_id, attribute_code, value}`. `receive` checks a timestamped HMAC-SHA256 signature with an extension secret, answers `GET ?challenge=` handshakes and keeps the body with the sender's delivery ID as dedupe key; the `webhook.received.v1` handler reads the payload back and writes the value | `webhook.rs` |
 | `server.event_handlers` | `record.updated.v1` recalculates formulas whose inputs changed, completing chains in dependency order, and skips the events its own writes cause by the delivery's `source-name` | `handler.rs` |
 | Typed outcomes | Invalid formulas and payloads are `rejected` (recorded, never retried); host call failures `retry` with backoff instead of quarantining | `handler.rs`, `operation.rs`, `documents/` |
 | `clock` | Activity entries carry the host's wall-clock time | `activity.rs` |
@@ -50,8 +51,8 @@ recalculated and written **in that same context**.
 | `audit_event_panel` (panel) | The extension's recent activity beside an audit event | `client/audit-panel.js` |
 | Client runtime | `command`, `request`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
 
-The release does not use webhooks (declared by the host but not delivered yet),
-outbound HTTPS (`network.request` needs a public endpoint), secrets, OAuth
+The release does not use outbound HTTPS (`network.request` needs a public
+endpoint), OAuth
 connections, connector jobs and exports (including the `export_mapping`
 outlet), `resume-after-ms` deferral, or the client capabilities that have no
 `attricat.*` method yet.
@@ -73,9 +74,9 @@ Comparison uses a relative tolerance, because Attricat stores decimals
 (`99.99 * 1.23` computes as `122.98769999999999` and reads back as `122.9877`).
 Writes carry the extension's provenance (`extension:attricat-extension-example`).
 
-### One component, three exports
+### One component, four exports
 
-`server.wasm` targets the `outcome-extension` world of `attricat:host@1.1.0`
+`server.wasm` targets the `webhook-extension` world of `attricat:host@1.2.0`
 (`server/component/wit`). An extension contributes at
 most once to each UI outlet and has one action dialog, so both interactive
 operations share the record, row and bulk actions and the dialog, which
@@ -87,6 +88,35 @@ dispatches by task; the `operations` export dispatches by operation ID.
 - **`deferrable-operations`**: the interactive runs read only their frozen selection
   (values already resolved in the run's context) and write only through
   `attricat-data.batch`. Direct `api` catalog access is refused inside a run.
+- **`webhook-receiver`**: runs while the sender waits and can only read
+  configuration, secrets and storage, so it only authenticates and keeps the
+  request. The `apply-external-values` event handler does the write later,
+  with the host's retries.
+
+### External values webhook
+
+Create an extension secret (default name `example-webhook-secret`, or set the
+`webhook_secret` configuration field to another name), then an endpoint:
+
+```sh
+printf %s "$SECRET" | acli extension secret set example-webhook-secret --value-stdin
+acli extension webhook create attricat-extension-example --webhook external-values --endpoint erp
+```
+
+The response's `url` (or `path`) is shown once. Sign each request with
+`x-example-signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`;
+signatures older than five minutes are refused, and `x-example-delivery`
+deduplicates retries:
+
+```sh
+body='{"record_id":"…","context_id":"…","attribute_code":"price_net","value":12.5}'
+t=$(date +%s); sig=$(printf %s "$t.$body" | openssl dgst -sha256 -hmac "$SECRET" -hex | cut -d' ' -f2)
+curl -X POST "$URL" -H "x-example-signature: t=$t,v1=$sig" -H "x-example-delivery: 1" -d "$body"
+```
+
+The written value shows up in the activity log with source `webhook`. Its
+`record.updated.v1` carries this extension's own source, so the formula
+handler does not recalculate from it.
 
 A per-formula problem (a non-numeric value) is recorded in the activity log
 and the delivery succeeds. Invalid formulas are recorded too and the delivery
@@ -178,7 +208,7 @@ just pack    # dist/attricat-extension-example-<version>.tar.zst
 ```
 
 `just pack` builds the client bundles and the component, fails if
-`server.wasm` imports anything other than `attricat:host@1.1.0`, and packages
+`server.wasm` imports anything other than `attricat:host@1.2.0`, and packages
 exactly the files the manifest declares. The release profile optimizes for
 size because the host compiles the component on first use.
 

@@ -15,7 +15,7 @@
 // catalog, transfer, selection) fail outside an operation run, and direct
 // catalog reads/writes through `api` fail inside one, because operation runs
 // access catalog data only through their run-scoped interfaces.
-package attricat:host@1.1.0;
+package attricat:host@1.2.0;
 
 interface api {
   record event {
@@ -29,7 +29,8 @@ interface api {
   }
 
   /// Attricat values use JSON because their type is defined by the owning
-  /// blueprint. Every JSON field is bounded by the host to 64 KiB.
+  /// blueprint. The host bounds JSON an extension sends to 64 KiB and JSON it
+  /// answers with to 1 MiB.
   record record-reference { record-id: string }
   record resolved-read { record-id: string, context-id: string }
   variant read-request {
@@ -106,14 +107,14 @@ interface artifacts {
   finalize-output: func(name: string) -> result<string, string>;
 }
 
-// JSON payloads are bounded to 64 KiB. Page limits and intent limits are
-// enforced in the repository. Batch keys are scoped to the durable run.
+// Requests are bounded to 64 KiB and results to 1 MiB. Page limits and intent
+// limits are enforced in the repository. Batch keys are scoped to the durable run.
 interface attricat-data {
   read: func(request: string) -> result<string, string>;
   batch: func(request: string) -> result<string, string>;
 }
 
-// Connector-oriented typed selectors. JSON results remain bounded to 64 KiB.
+// Connector-oriented typed selectors. JSON results remain bounded to 1 MiB.
 interface attricat {
   schema: func(blueprint-id: string, blueprint-version: u64, context-id: string) -> result<string, string>;
   page: func(blueprint-id: string, blueprint-version: u64, context-id: string, cursor: string, limit: u32) -> result<string, string>;
@@ -244,6 +245,47 @@ interface deferrable-operations {
   cancel: func(request: operation-request) -> result<_, string>;
 }
 
+/// 1.2: inbound webhooks. The host calls `receive` while the sender waits for
+/// its HTTP response, after it has found the endpoint and bounded the body.
+/// The component checks the request (for example its signature, with a
+/// secret it reads through `secrets.get.v1`), chooses the exact response and
+/// may keep a payload. A kept payload is stored durably before the response
+/// is sent and delivered later to the component's event handlers as a
+/// `webhook.received.v1` event; the handler reads it with
+/// `webhooks.receipt.get.v1`. During `receive` only configuration, secrets,
+/// extension storage reads, the clock and logging are available: no catalog
+/// access, writes, events or network requests. Its failures and traps are
+/// answered with a 500 and never quarantine the installation, since anyone
+/// who knows the endpoint URL can send a request.
+interface webhook-receiver {
+  record webhook-header { name: string, value: string }
+  record webhook-request {
+    /// The manifest webhook ID.
+    webhook: string,
+    /// The operator's endpoint name, so one webhook can serve several
+    /// accounts with secrets of their own.
+    endpoint: string,
+    /// `GET` or `POST`.
+    method: string,
+    /// The query string without its leading `?`, possibly empty.
+    query: string,
+    /// Request headers with lower-case names, except cookies and
+    /// credentials the host strips.
+    headers: list<webhook-header>,
+    /// The raw body, as received, at most the webhook's `max_body_bytes`.
+    body: list<u8>,
+  }
+  /// The HTTP response the sender receives.
+  record webhook-reply { status: u16, headers: list<webhook-header>, body: string }
+  /// A payload to keep and deliver, at most the webhook's `max_body_bytes`.
+  /// With a `dedupe-key`, such as the sender's delivery ID, an endpoint keeps
+  /// only the first payload of each key: a repeat gets this reply but is
+  /// neither stored nor delivered again.
+  record kept-payload { payload: string, dedupe-key: option<string> }
+  record webhook-outcome { reply: webhook-reply, keep: option<kept-payload> }
+  receive: func(request: webhook-request) -> result<webhook-outcome, string>;
+}
+
 /// Every host import. Worlds below differ only in exports.
 world imports {
   import api;
@@ -282,4 +324,14 @@ world outcome-extension {
   export event-handler;
   export command-handler;
   export deferrable-operations;
+}
+
+/// 1.2: everything `outcome-extension` exports, plus inbound webhooks.
+/// Components that need only some of them return a fault from the others.
+world webhook-extension {
+  include imports;
+  export event-handler;
+  export command-handler;
+  export deferrable-operations;
+  export webhook-receiver;
 }

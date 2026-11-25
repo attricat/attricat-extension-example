@@ -2,18 +2,19 @@
 
 ## Host ABI
 
-The extension targets the additive `attricat:host@1.1.0` ABI (`host_api`
-`>=1.1.0, <2.0.0`; WIT vendored in `server/component/wit`). It is the single
+The extension targets the additive `attricat:host@1.2.0` ABI (`host_api`
+`>=1.2.0, <2.0.0`; WIT vendored in `server/component/wit`). It is the single
 reference extension and should showcase as much of the ABI and as many
 extension points as it reasonably can; add new surfaces here rather than in a
-separate extension. The component targets the `outcome-extension` world
-(1.1 `event-handler`, `command-handler` and `deferrable-operations`). Copy WIT
+separate extension. The component targets the `webhook-extension` world
+(1.1 `event-handler`, `command-handler` and `deferrable-operations`, and the 1.2
+`webhook-receiver`). Copy WIT
 from the [attricat-extension-sdk](https://github.com/attricat/attricat-extension-sdk)
 `wit/` directory: `server/component/wit/attricat-extension.wit` is its
-`attricat-host-1.1.0.wit` verbatim. Never copy the core repository's
+`attricat-host-1.2.0.wit` verbatim. Never copy the core repository's
 unreleased `wit-host/`, and never edit the vendored file by hand.
 `just build-server` fails if the component imports anything other than
-`attricat:host@1.1.0`.
+`attricat:host@1.2.0`.
 
 ## Client UI
 
@@ -30,7 +31,7 @@ checkout. `pnpm typecheck` checks the native sources.
 ## Extension verification
 
 Test this extension against a **running Attricat development server that
-provides host API 1.1**. Unit tests and packaging checks are necessary but are
+provides host API 1.2**. Unit tests and packaging checks are necessary but are
 not sufficient to validate host integration.
 
 1. Run `just check` and `just pack`.

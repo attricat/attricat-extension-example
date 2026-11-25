@@ -1,14 +1,14 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.15.0",
-  "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.1 extension surface.",
+  "version": "0.16.1",
+  "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.2 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
   },
   "attricat": {
     "id": "attricat-extension-example",
-    "host_api": ">=1.1.0, <2.0.0"
+    "host_api": ">=1.2.0, <2.0.0"
   },
   "permissions": [
     "attricat.read",
@@ -43,7 +43,10 @@
     "client.blueprint_publish_check",
     "client.audit_event_panel",
     "client.record_field_notes",
-    "client.attribute_editor"
+    "client.attribute_editor",
+    "configuration.read",
+    "secrets.read",
+    "webhooks.receive"
   ],
   "artifacts": [
     {
@@ -113,7 +116,14 @@
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "properties": {}
+      "properties": {
+        "webhook_secret": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Name of the extension secret that signs external-values webhooks (default example-webhook-secret)."
+        }
+      }
     }
   },
   "scoped_configuration": {
@@ -180,6 +190,13 @@
         "id": "recalculate-on-attribute-change",
         "event_types": [
           "record.updated.v1"
+        ],
+        "handler": "handle-event"
+      },
+      {
+        "id": "apply-external-values",
+        "event_types": [
+          "webhook.received.v1"
         ],
         "handler": "handle-event"
       }
@@ -875,6 +892,13 @@
           "version": 1,
           "max_selection": 50
         }
+      }
+    ],
+    "webhooks": [
+      {
+        "id": "external-values",
+        "title": "External values",
+        "max_body_bytes": 16384
       }
     ]
   },

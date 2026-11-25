@@ -27,7 +27,7 @@ check: fmt test
 build-client:
   pnpm run build
 
-# Build a component that imports only the attricat:host@1.1.0 ABI.
+# Build a component that imports only the attricat:host@1.2.0 ABI.
 # wasm32-wasip2 would import ambient WASI interfaces, which Attricat never links.
 build-server:
   #!/usr/bin/env bash
@@ -37,8 +37,8 @@ build-server:
   cargo build --release --target wasm32-unknown-unknown -p attricat-extension-example-server
   mkdir -p {{dist_dir}}
   wasm-tools component new target/wasm32-unknown-unknown/release/attricat_extension_example_server.wasm -o {{dist_dir}}/server.wasm
-  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'attricat:host/.*@1\.1\.0'; then
-    echo "server.wasm imports something other than attricat:host@1.1.0" >&2; exit 1
+  if wasm-tools component wit {{dist_dir}}/server.wasm | grep -E '^\s*import ' | grep -v 'attricat:host/.*@1\.2\.0'; then
+    echo "server.wasm imports something other than attricat:host@1.2.0" >&2; exit 1
   fi
 
 # Every artifact path declared by the manifest must exist and be non-empty.

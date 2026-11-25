@@ -1,21 +1,23 @@
 //! Attricat example extension: context-aware computed numeric attributes and
 //! PDF documents.
 //!
-//! One component on the `attricat:host@1.1.0` ABI exports the three
-//! interfaces of the `outcome-extension` world:
+//! One component on the `attricat:host@1.2.0` ABI exports the four
+//! interfaces of the `webhook-extension` world:
 //!
 //! - `event-handler`: the `record.updated.v1` handler, with the delivery's
 //!   source and typed outcomes ([`handler`]).
 //! - `command-handler`: the client commands ([`handler`]).
 //! - `deferrable-operations`: the interactive `recalculate-selection`
 //!   ([`operation`]) and `generate-documents` ([`documents`]) operations.
+//! - `webhook-receiver`: the `external-values` inbound webhook, whose kept
+//!   payloads the event handler writes into the catalog ([`webhook`]).
 //!
 //! Formula logic is host-independent ([`formulas`]); extension-owned state lives
 //! in `storage.extension` ([`activity`]); host calls are wrapped in [`host`].
 
 wit_bindgen::generate!({
     path: "wit",
-    world: "outcome-extension",
+    world: "webhook-extension",
 });
 
 mod activity;
@@ -24,6 +26,7 @@ mod formulas;
 mod handler;
 mod host;
 mod operation;
+mod webhook;
 
 use attricat::host::api::Event;
 use attricat::host::outcomes::{Failure, Retry};
@@ -31,6 +34,7 @@ use exports::attricat::host::{
     command_handler::{CommandRequest, CommandResponse},
     deferrable_operations::{BatchOutcome, OperationRequest},
     event_handler::Delivery,
+    webhook_receiver::{WebhookOutcome, WebhookRequest},
 };
 
 /// Host call failures are temporary: the host retries the delivery or batch
@@ -48,7 +52,16 @@ struct Extension;
 
 impl exports::attricat::host::event_handler::Guest for Extension {
     fn handle_event(event: Event, delivery: Delivery) -> Result<(), Failure> {
+        if event.event_type == webhook::RECEIVED_EVENT {
+            return webhook::handle_received(&event);
+        }
         handler::handle_event(event, delivery)
+    }
+}
+
+impl exports::attricat::host::webhook_receiver::Guest for Extension {
+    fn receive(request: WebhookRequest) -> Result<WebhookOutcome, String> {
+        webhook::receive(request)
     }
 }
 
