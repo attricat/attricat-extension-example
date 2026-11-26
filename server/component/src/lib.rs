@@ -6,7 +6,8 @@
 //!
 //! - `event-handler`: the `record.updated.v1` handler, with the delivery's
 //!   source and typed outcomes ([`handler`]).
-//! - `command-handler`: the client commands ([`handler`]).
+//! - `command-handler`: the client commands ([`handler`]), including the
+//!   `formula-preview` form assist ([`form_assist`]).
 //! - `deferrable-operations`: the interactive `recalculate-selection`
 //!   ([`operation`]) and `generate-documents` ([`documents`]) operations.
 //! - `webhook-receiver`: the `external-values` inbound webhook, whose kept
@@ -22,6 +23,7 @@ wit_bindgen::generate!({
 
 mod activity;
 mod documents;
+mod form_assist;
 mod formulas;
 mod handler;
 mod host;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.2 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -46,7 +46,8 @@
     "client.attribute_editor",
     "configuration.read",
     "secrets.read",
-    "webhooks.receive"
+    "webhooks.receive",
+    "client.form_assist"
   ],
   "artifacts": [
     {
@@ -773,6 +774,43 @@
         "max_response_bytes": 65536
       },
       {
+        "id": "propose-formulas",
+        "handler": "propose-formulas",
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "version",
+            "assist",
+            "blueprint",
+            "record_id",
+            "context_id",
+            "values",
+            "edited"
+          ],
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "values": {
+              "type": "object"
+            },
+            "edited": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "response_schema": {
+          "type": "object",
+          "required": [
+            "proposals"
+          ]
+        },
+        "max_response_bytes": 16384
+      },
+      {
         "id": "open-workbench-action",
         "handler": "open-workbench-action",
         "request_schema": {
@@ -1246,6 +1284,28 @@
       "editor": {
         "value_types": [
           "string"
+        ]
+      }
+    },
+    {
+      "id": "formula-preview",
+      "version": 1,
+      "kind": "form_assist",
+      "outlet": "record_form",
+      "when": {
+        "blueprints": [
+          "formula_quote"
+        ]
+      },
+      "form_assist": {
+        "command": "propose-formulas",
+        "watch": [
+          "price_net",
+          "vat_rate"
+        ],
+        "proposes": [
+          "price_gross",
+          "price_deposit"
         ]
       }
     },
