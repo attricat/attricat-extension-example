@@ -73,8 +73,24 @@ views:
   dropdown_option:
     type: dropdown_option
     fields: [title]
+  # Record and Explorer contributions appear only where a view lists them.
+  detail:
+    type: stack
+    extensions:
+      - ${EXTENSION}/recalculate-record
+      - ${EXTENSION}/generate-record-document
+      - ${EXTENSION}/check-formulas
+      - ${EXTENSION}/open-workbench
+      - ${EXTENSION}/formula-inspector
   table:
     type: table
+    extensions:
+      - ${EXTENSION}/show-formulas
+      - ${EXTENSION}/recalculate-row
+      - ${EXTENSION}/generate-row-document
+      - ${EXTENSION}/recalculate-selection-action
+      - ${EXTENSION}/generate-selection-documents
+      - ${EXTENSION}/recalculate-selection-now
     columns:
       - field: title
       - field: price_gross
@@ -385,8 +401,8 @@ attributes:
   });
 
   await step('form_assist: formula targets previewed while a record is entered', async () => {
-    // The assist names its blueprint, so the check publishes a new revision
-    // of one fixed code each run.
+    // The blueprint lists the assist in its detail view; the check publishes
+    // a new revision of one fixed code each run.
     const quoteCode = 'formula_quote';
     const quoteDefinition = `format_version: 1
 code: ${quoteCode}
@@ -396,8 +412,9 @@ views:
   dropdown_option:
     type: dropdown_option
     fields: [title]
-form_assists:
-  - {extension_id: ${EXTENSION}, id: formula-preview, version: 1}
+  detail:
+    type: stack
+    extensions: [${EXTENSION}/formula-preview]
 extensions:
   ${EXTENSION}:
     formulas:

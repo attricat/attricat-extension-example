@@ -37,7 +37,7 @@ recalculated and written **in that same context**.
 | `route` + `navigation` | **Document templates**: a list page and one page per template (in-frame screens; the host URL stays fixed) with its editor, where `{{ attribute_code }}` marks are replaced with saved values; versioned saves through commands | `client/templates.jsx`, `documents/templates.rs` |
 | `record_tab` | A **Formulas** tab on product records: formulas evaluated in the selected context, ad-hoc preview, recalculation | `client/inspector.js` |
 | `record_field_notes` | One command describes a record's fields: a **Computed** badge (whose action opens the recalculation dialog) and the formula on each target, **Feeds …** on each input, and the last generated document beneath each file; the host renders them | `handler.rs` (`describe-fields`) |
-| `form_assist` at `record_form` | **Formula preview**: while a `formula_quote` record is entered (in the record form or a new table row), changing `price_net` or `vat_rate` proposes `price_gross` and `price_deposit` from the revision's formulas, with the formula as the field's note; targets the person edited are kept and feed later formulas. The blueprint opts in with `form_assists: [{extension_id: attricat-extension-example, id: formula-preview, version: 1}]`. Needs a host newer than 1.5.0 | `form_assist.rs` (`propose-formulas`) |
+| `form_assist` at `record_form` | **Formula preview**: while a record is entered (in the record form or a new table row), changing `price_net` or `vat_rate` proposes `price_gross` and `price_deposit` from the revision's formulas, with the formula as the field's note; targets the person edited are kept and feed later formulas. A blueprint runs it by listing `attricat-extension-example/formula-preview` in `views.detail.extensions` | `form_assist.rs` (`propose-formulas`) |
 | `record_action` (action) | **Recalculate formulas** calls a command whose notification and `refresh` the host applies; **Generate document…** opens the documents dialog | `manifest.json`, `handler.rs` |
 | `explorer_row_action` / `explorer_bulk_action` (action) | **Recalculate formulas…** and **Generate documents…** open the matching dialog for the row or selection | `manifest.json` |
 | `action_dialog` | Two dialogs, one per task: recalculate formulas or generate documents; each starts, follows and cancels runs and downloads outputs; the host renders the title and close control | `client/*-dialog.js`, `client/dialog-*.js` |
@@ -51,6 +51,35 @@ recalculated and written **in that same context**.
 | `blueprint_publish_check` (panel) | Informational: the formulas to expect and when they are validated | `client/publish-check.js` |
 | `audit_event_panel` (panel) | The extension's recent activity beside an audit event | `client/audit-panel.js` |
 | Client runtime | `command`, `request`, `storage`, `refresh`, `notify`, `navigate`, `operations.*`, `dialog.*`, context and theme events | `client/*` |
+
+Record and Explorer contributions declare the blueprint view they belong to
+and appear only on blueprints whose view lists them, in the listed order. To
+show everything on a formula blueprint:
+
+```yaml
+views:
+  detail:
+    type: stack
+    extensions:
+      - attricat-extension-example/recalculate-record
+      - attricat-extension-example/generate-record-document
+      - attricat-extension-example/check-formulas
+      - attricat-extension-example/open-workbench
+      - attricat-extension-example/formula-inspector
+      - attricat-extension-example/formula-preview
+  table:
+    type: table
+    extensions:
+      - attricat-extension-example/show-formulas
+      - attricat-extension-example/recalculate-row
+      - attricat-extension-example/generate-row-document
+      - attricat-extension-example/recalculate-selection-action
+      - attricat-extension-example/generate-selection-documents
+      - attricat-extension-example/recalculate-selection-now
+```
+
+The field-note **Computed** badge, the table cell, the attribute editor and the
+panels need no entry.
 
 The release does not use outbound HTTPS (`network.request` needs a public
 endpoint), OAuth

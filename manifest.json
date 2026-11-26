@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.2 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -995,6 +995,7 @@
       "kind": "tab",
       "artifact": "inspector",
       "outlet": "record_tab",
+      "view": "detail",
       "title": "Formulas",
       "icon": "calculator",
       "translations": {
@@ -1053,6 +1054,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "record_action",
+      "view": "detail",
       "title": "Recalculate formulas",
       "invoke": {
         "command": "recalculate-action"
@@ -1072,6 +1074,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "record_action",
+      "view": "detail",
       "title": "Generate document…",
       "invoke": {
         "dialog": "documents-dialog"
@@ -1088,6 +1091,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "record_header_action",
+      "view": "detail",
       "title": "Check formulas",
       "invoke": {
         "command": "check-formulas-action"
@@ -1104,6 +1108,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "record_header_action",
+      "view": "detail",
       "title": "Open formula workbench",
       "invoke": {
         "command": "open-workbench-action"
@@ -1120,6 +1125,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_action",
+      "view": "table",
       "title": "Show formulas",
       "invoke": {
         "command": "list-formulas-action"
@@ -1136,6 +1142,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_row_action",
+      "view": "table",
       "title": "Recalculate formulas…",
       "invoke": {
         "dialog": "recalculate-dialog"
@@ -1155,6 +1162,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_row_action",
+      "view": "table",
       "title": "Generate document…",
       "invoke": {
         "dialog": "documents-dialog"
@@ -1171,6 +1179,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_bulk_action",
+      "view": "table",
       "title": "Recalculate formulas…",
       "invoke": {
         "dialog": "recalculate-dialog"
@@ -1191,6 +1200,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_bulk_action",
+      "view": "table",
       "title": "Generate documents…",
       "invoke": {
         "dialog": "documents-dialog"
@@ -1207,6 +1217,7 @@
       "version": 1,
       "kind": "action",
       "outlet": "explorer_bulk_action",
+      "view": "table",
       "title": "Recalculate formulas now",
       "invoke": {
         "operation": {
@@ -1292,11 +1303,7 @@
       "version": 1,
       "kind": "form_assist",
       "outlet": "record_form",
-      "when": {
-        "blueprints": [
-          "formula_quote"
-        ]
-      },
+      "view": "detail",
       "form_assist": {
         "command": "propose-formulas",
         "watch": [
