@@ -384,6 +384,102 @@ attributes:
     }
   });
 
+  await step('form_assist: formula targets previewed while a record is entered', async () => {
+    // The assist names its blueprint, so the check publishes a new revision
+    // of one fixed code each run.
+    const quoteCode = 'formula_quote';
+    const quoteDefinition = `format_version: 1
+code: ${quoteCode}
+name: Formula quote
+kind: record
+views:
+  dropdown_option:
+    type: dropdown_option
+    fields: [title]
+form_assists:
+  - {extension_id: ${EXTENSION}, id: formula-preview, version: 1}
+extensions:
+  ${EXTENSION}:
+    formulas:
+      price_gross: price_net * (1 + vat_rate)
+      price_deposit: price_gross * 0.2
+attributes:
+  - code: title
+    value_type: string
+  - code: price_net
+    value_type: number
+  - code: vat_rate
+    value_type: number
+  - code: price_gross
+    value_type: number
+  - code: price_deposit
+    value_type: number
+`;
+    const existing = await api('GET', `/blueprints/by-code/${quoteCode}`).catch(() => null);
+    const saved = existing
+      ? await api('POST', `/blueprints/${existing.blueprint.id}/versions`, { definition: quoteDefinition })
+      : await api('POST', '/blueprints', { definition: quoteDefinition });
+    const quote = saved.blueprint ?? saved;
+    await api('POST', `/blueprints/${quote.id}/versions/${quote.version}/publish`);
+    // A record update lets the extension index the revision's formulas.
+    const seed = (await api('POST', '/v1/records', {
+      blueprint: { code: quoteCode, version: quote.version },
+      values: [scalar('title', `Seed ${suffix}`, defaultContext.id)],
+    })).id;
+    await update(seed, [scalar('price_net', 1, defaultContext.id)]);
+
+    const answer = await poll(
+      'form assist answer',
+      () =>
+        api('POST', '/v1/records/form-assist', {
+          extension_id: EXTENSION,
+          id: 'formula-preview',
+          blueprint_id: quote.id,
+          blueprint_version: quote.version,
+          values: { price_net: 100, vat_rate: 0.5 },
+          edited: [],
+        }),
+      (body) => body.outcome === 'answered' && body.proposals.length === 2,
+    );
+    const proposed = Object.fromEntries(answer.proposals.map((item) => [item.attribute_code, item.value]));
+    if (proposed.price_gross !== 150 || proposed.price_deposit !== 30) {
+      throw new Error(`proposals: ${JSON.stringify(answer.proposals)}`);
+    }
+    // A target the person edited is kept, and later formulas read it.
+    const edited = await api('POST', '/v1/records/form-assist', {
+      extension_id: EXTENSION,
+      id: 'formula-preview',
+      blueprint_id: quote.id,
+      blueprint_version: quote.version,
+      values: { price_net: 100, vat_rate: 0.5, price_gross: 200 },
+      edited: ['price_gross'],
+    });
+    if (JSON.stringify(edited.proposals.map((item) => [item.attribute_code, item.value])) !== '[["price_deposit",40]]') {
+      throw new Error(`edited proposals: ${JSON.stringify(edited.proposals)}`);
+    }
+
+    // The record form fills the targets as the inputs are typed.
+    await page.goto(`${WEB}/records/new?blueprint=${quoteCode}`);
+    await page.getByRole('spinbutton', { name: 'price net' }).fill('100');
+    await page.getByRole('spinbutton', { name: 'vat rate' }).fill('0.5');
+    const grossInput = page.getByRole('spinbutton', { name: 'price gross' });
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('input')].some((element) => element.value === '150'),
+      null,
+      { timeout: 30_000 },
+    );
+    await page.getByText('= price_net * (1 + vat_rate)').first().waitFor({ timeout: 10_000 });
+    // A value the person types is kept when the inputs change again.
+    await grossInput.fill('170');
+    await page.getByRole('spinbutton', { name: 'price net' }).fill('120');
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('input')].some((element) => element.value === '34'),
+      null,
+      { timeout: 30_000 },
+    );
+    if ((await grossInput.inputValue()) !== '170') throw new Error('the typed gross price was replaced');
+  });
+
   await step('data_health_card shows counters', async () => {
     await page.goto(`${WEB}/manage/data-health`);
     await frameWith(/\d+\s*evaluations/);

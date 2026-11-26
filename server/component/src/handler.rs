@@ -261,6 +261,7 @@ pub fn handle_command(request: CommandRequest) -> Result<CommandResponse, String
         "check-formulas-action" => check_action(decode(&request.payload, "action context")?)?,
         "list-formulas-action" => list_action(decode(&request.payload, "action context")?)?,
         "describe-fields" => describe_fields(decode(&request.payload, "field notes request")?)?,
+        "propose-formulas" => crate::form_assist::propose(&request.payload)?,
         "open-workbench-action" => open_workbench_action()?,
         "get-attribute-settings" | "save-attribute-settings" => {
             let input: AttributeRequest = decode(&request.payload, "settings request")?;
