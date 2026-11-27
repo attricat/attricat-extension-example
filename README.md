@@ -125,11 +125,14 @@ dispatches by task; the `operations` export dispatches by operation ID.
 
 ### External values webhook
 
-Create an extension secret (default name `example-webhook-secret`, or set the
-`webhook_secret` configuration field to another name), then an endpoint:
+Set the extension's signing secret, then create an endpoint. The manifest
+declares `example-webhook-secret` as required in `server.secrets`, so the
+extension's **Secrets** tab lists it; to use another name, set the
+`webhook_secret` configuration field and add a secret by that name. Secrets
+belong to this extension and need Attricat 1.12 or later:
 
 ```sh
-printf %s "$SECRET" | acli extension secret set example-webhook-secret --value-stdin
+printf %s "$SECRET" | acli extension secret set attricat-extension-example example-webhook-secret --value-stdin
 acli extension webhook create attricat-extension-example --webhook external-values --endpoint erp
 ```
 

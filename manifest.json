@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "name": "Attricat Example Extension",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Context-aware computed numeric attributes and PDF documents: a tour of the attricat:host 1.2 extension surface.",
   "icons": {
     "48": "assets/icon-48.svg"
@@ -937,6 +937,14 @@
         "id": "external-values",
         "title": "External values",
         "max_body_bytes": 16384
+      }
+    ],
+    "secrets": [
+      {
+        "name": "example-webhook-secret",
+        "title": "Webhook signing key",
+        "description": "Signs requests to the External values webhook. The webhook_secret configuration field can name another secret.",
+        "required": true
       }
     ]
   },
